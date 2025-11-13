@@ -50,6 +50,14 @@ class VideoDownloader:
 
             print(f"[DEBUG] Download completed, checking for output files...")
 
+            # Check for file without extension first (yt-dlp sometimes saves without extension)
+            no_ext_path = output_path.with_suffix('')
+            print(f"[DEBUG] Checking for file without extension: {no_ext_path}")
+            if no_ext_path.exists():
+                print(f"[DEBUG] Found file without extension, renaming to .mp4")
+                no_ext_path.rename(output_path)
+                return str(output_path)
+
             # Handle extension variations
             for ext in ['.mp4', '.mkv', '.webm']:
                 potential_path = output_path.with_suffix(ext)
