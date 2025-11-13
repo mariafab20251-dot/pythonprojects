@@ -94,6 +94,7 @@ class VideoProcessor:
             self.db.add_video(video_id, platform, url, overlay_text, speech_text, captions, hashtags)
             self.exporter.export_to_csv(data)
             self.exporter.export_to_json(data)
+            self.exporter.export_to_txt(data)
 
             log_callback(f"✅ Completed: {video_id}")
 
