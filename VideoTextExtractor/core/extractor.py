@@ -48,7 +48,7 @@ class MediaExtractor:
         if len(word) <= 1:
             return True
 
-        # Common OCR garbage words
+        # Common OCR garbage words (but NOT common English words)
         garbage_list = ['ora', 'mil', 'wy', 'eel', 'ae', 'bo', 'rf', 'fag', 'fay',
                        'va', 'gj', 'Soe', 'Hal', 'pane', 'Chee', 'siaee', 'nites',
                        'Aap', 'Ti', 'Al', 'Ee', 'Sg', 'NE']
@@ -59,9 +59,12 @@ class MediaExtractor:
         if len(word) == 2:
             common_2letter = ['is', 'it', 'at', 'to', 'in', 'on', 'or', 'an', 'as', 'be',
                              'by', 'do', 'go', 'he', 'hi', 'if', 'me', 'my', 'no', 'of',
-                             'ok', 'on', 'or', 'so', 'to', 'up', 'us', 'we']
-            if word.lower() not in common_2letter:
-                return True
+                             'ok', 'so', 'up', 'us', 'we']
+            # Don't filter if it's a common word
+            if word.lower() in common_2letter:
+                return False
+            # Otherwise, filter uncommon 2-letter words
+            return True
 
         # Check for mixed case in short words (like "Ee", "Al")
         if len(word) <= 2 and word[0].isupper() and (len(word) > 1 and word[1].islower() or word[1].isupper()):
@@ -92,6 +95,30 @@ class MediaExtractor:
                 return True
 
         return False
+
+    def clean_sentence_endings(self, sentence):
+        """Remove garbage from the end of sentences"""
+        words = sentence.split()
+
+        # Work backwards and remove trailing garbage
+        while len(words) >= 2:
+            # Check if last 2 words look like garbage pattern
+            last_two = ' '.join(words[-2:]).lower()
+
+            # Common garbage patterns at end
+            garbage_endings = ['at is', 'is at', 'at in', 'in at', 'is in', 'in is',
+                              'at to', 'to at', 'is to', 'to is']
+
+            if last_two in garbage_endings:
+                # Remove last 2 words
+                words = words[:-2]
+            elif len(words[-1]) <= 2 and words[-1].lower() in ['at', 'is', 'in', 'to', 'an', 'or']:
+                # Single trailing preposition/conjunction at end (likely garbage)
+                words = words[:-1]
+            else:
+                break
+
+        return ' '.join(words)
 
     def filter_sentences(self, text):
         """Filter out garbage sentences and garbage words from text"""
@@ -132,7 +159,13 @@ class MediaExtractor:
 
             # Rebuild sentence from clean words
             clean_sentence = ' '.join(clean_words)
-            clean_sentences.append(clean_sentence)
+
+            # Clean garbage from sentence endings
+            clean_sentence = self.clean_sentence_endings(clean_sentence)
+
+            # Final check - sentence must still have meaningful content
+            if len(clean_sentence.split()) >= 3:
+                clean_sentences.append(clean_sentence)
 
         return '. '.join(clean_sentences) if clean_sentences else ""
 

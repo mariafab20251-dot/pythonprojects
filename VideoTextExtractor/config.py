@@ -24,7 +24,7 @@ FRAME_INTERVAL = 2  # Extract frame every N seconds
 TESSERACT_CONFIG = "--oem 3 --psm 6"
 
 # Download settings
-KEEP_VIDEOS = False  # Keep downloaded videos after processing (set to True to retain)
+KEEP_VIDEOS = True  # Keep downloaded videos after processing (set to False to auto-delete)
 MAX_RETRIES = 3
 
 # Processing settings
