@@ -32,8 +32,14 @@ class DataExporter:
     def export_to_json(self, data):
         existing_data = []
         if JSON_PATH.exists():
-            with open(JSON_PATH, 'r', encoding='utf-8') as f:
-                existing_data = json.load(f)
+            try:
+                with open(JSON_PATH, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    if content:  # Only parse if file has content
+                        existing_data = json.loads(content)
+            except (json.JSONDecodeError, ValueError):
+                # File is corrupted or empty, start fresh
+                existing_data = []
 
         existing_data.append(data)
 
