@@ -55,8 +55,39 @@ class VideoDownloader:
             print(f"[DEBUG] Checking for file without extension: {no_ext_path}")
             if no_ext_path.exists():
                 print(f"[DEBUG] Found file without extension, renaming to .mp4")
-                no_ext_path.rename(output_path)
-                return str(output_path)
+                try:
+                    # Check file size first
+                    file_size = no_ext_path.stat().st_size
+                    print(f"[DEBUG] File size: {file_size} bytes")
+
+                    if file_size == 0:
+                        print(f"[DEBUG] ERROR: File is empty (0 bytes)!")
+                        no_ext_path.unlink()  # Delete empty file
+                        return None
+
+                    # Try rename
+                    no_ext_path.rename(output_path)
+                    print(f"[DEBUG] Successfully renamed to: {output_path}")
+
+                    # Verify renamed file exists
+                    if output_path.exists():
+                        print(f"[DEBUG] Verified file exists after rename")
+                        return str(output_path)
+                    else:
+                        print(f"[DEBUG] ERROR: File doesn't exist after rename!")
+                        return None
+
+                except Exception as rename_err:
+                    print(f"[DEBUG] Rename failed: {rename_err}")
+                    # Try direct copy as fallback
+                    try:
+                        import shutil
+                        shutil.copy2(no_ext_path, output_path)
+                        print(f"[DEBUG] Copied file instead of renaming")
+                        return str(output_path)
+                    except Exception as copy_err:
+                        print(f"[DEBUG] Copy also failed: {copy_err}")
+                        return None
 
             # Handle extension variations
             for ext in ['.mp4', '.mkv', '.webm']:

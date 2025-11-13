@@ -48,11 +48,26 @@ class MediaExtractor:
         if len(word) <= 1:
             return True
 
+        # Common OCR garbage words
+        garbage_list = ['ora', 'mil', 'wy', 'eel', 'ae', 'bo', 'rf', 'fag', 'fay',
+                       'va', 'gj', 'Soe', 'Hal', 'pane', 'Chee', 'siaee', 'nites',
+                       'Aap', 'Ti', 'Al', 'Ee', 'Sg', 'NE']
+        if word in garbage_list or word.lower() in garbage_list:
+            return True
+
+        # Very short words (2 letters) that aren't common English
+        if len(word) == 2:
+            common_2letter = ['is', 'it', 'at', 'to', 'in', 'on', 'or', 'an', 'as', 'be',
+                             'by', 'do', 'go', 'he', 'hi', 'if', 'me', 'my', 'no', 'of',
+                             'ok', 'on', 'or', 'so', 'to', 'up', 'us', 'we']
+            if word.lower() not in common_2letter:
+                return True
+
         # Check for mixed case in short words (like "Ee", "Al")
         if len(word) <= 2 and word[0].isupper() and (len(word) > 1 and word[1].islower() or word[1].isupper()):
             return True
 
-        # Check for words with too many uppercase in middle (like "Aap", "Ti")
+        # Check for words with too many uppercase (like "Aap", "Ti")
         if len(word) >= 2:
             upper_count = sum(1 for c in word if c.isupper())
             if upper_count > len(word) * 0.6:  # More than 60% uppercase
@@ -67,6 +82,14 @@ class MediaExtractor:
         # Single uppercase letter words (I, A are OK, but other single letters are noise)
         if len(word) == 1 and word.isupper() and word not in ['I', 'A']:
             return True
+
+        # 3-letter words with unusual patterns
+        if len(word) == 3:
+            # All consonants or very uncommon patterns
+            vowels = set('aeiouAEIOU')
+            if not any(c in vowels for c in word):
+                # No vowels - likely garbage
+                return True
 
         return False
 
