@@ -43,8 +43,35 @@ class MediaExtractor:
 
         return text.strip()
 
+    def is_garbage_word(self, word):
+        """Check if a word is likely garbage/noise"""
+        if len(word) <= 1:
+            return True
+
+        # Check for mixed case in short words (like "Ee", "Al")
+        if len(word) <= 2 and word[0].isupper() and (len(word) > 1 and word[1].islower() or word[1].isupper()):
+            return True
+
+        # Check for words with too many uppercase in middle (like "Aap", "Ti")
+        if len(word) >= 2:
+            upper_count = sum(1 for c in word if c.isupper())
+            if upper_count > len(word) * 0.6:  # More than 60% uppercase
+                return True
+
+        # Check for words with numbers and letters mixed (like "r1")
+        has_alpha = any(c.isalpha() for c in word)
+        has_digit = any(c.isdigit() for c in word)
+        if has_alpha and has_digit and len(word) <= 3:
+            return True
+
+        # Single uppercase letter words (I, A are OK, but other single letters are noise)
+        if len(word) == 1 and word.isupper() and word not in ['I', 'A']:
+            return True
+
+        return False
+
     def filter_sentences(self, text):
-        """Filter out garbage sentences from text"""
+        """Filter out garbage sentences and garbage words from text"""
         if not text:
             return ""
 
@@ -57,28 +84,32 @@ class MediaExtractor:
             if not sentence:
                 continue
 
+            # Filter garbage words from the sentence
             words = sentence.split()
+            clean_words = [w for w in words if not self.is_garbage_word(w)]
 
-            # Filter criteria for a valid sentence
-            if len(words) < 3:  # Too short
+            # Re-check sentence validity after word filtering
+            if len(clean_words) < 3:  # Too short after filtering
                 continue
 
             # Count very short words (1-2 letters)
-            short_words = sum(1 for w in words if len(w) <= 2)
-            short_word_ratio = short_words / len(words)
+            short_words = sum(1 for w in clean_words if len(w) <= 2)
+            short_word_ratio = short_words / len(clean_words)
 
             # Reject if more than 40% are very short words (likely garbage)
             if short_word_ratio > 0.4:
                 continue
 
             # Count words with 4+ letters (likely real words)
-            real_words = sum(1 for w in words if len(w) >= 4)
+            real_words = sum(1 for w in clean_words if len(w) >= 4)
 
             # Need at least 3 real words for a valid sentence
             if real_words < 3:
                 continue
 
-            clean_sentences.append(sentence)
+            # Rebuild sentence from clean words
+            clean_sentence = ' '.join(clean_words)
+            clean_sentences.append(clean_sentence)
 
         return '. '.join(clean_sentences) if clean_sentences else ""
 
