@@ -31,6 +31,9 @@ class VideoDownloader:
         if self.cookies_file.exists():
             ydl_opts['cookiefile'] = str(self.cookies_file)
 
+        # Debug: Check cookies file
+        cookies_exists = self.cookies_file.exists()
+
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
@@ -45,10 +48,21 @@ class VideoDownloader:
 
             return None
         except Exception as e:
-            error_msg = str(e).lower()
-            if 'login' in error_msg or '401' in error_msg or 'unauthorized' in error_msg:
+            error_msg = str(e)
+
+            # Add cookies debug info
+            if not cookies_exists:
                 raise Exception(
-                    f"Authentication required for {self.platform}. "
-                    f"Please add cookies.txt file. See INSTAGRAM_AUTH.md for instructions."
+                    f"Download failed: {error_msg}\n"
+                    f"NOTE: cookies.txt not found at {self.cookies_file}\n"
+                    f"Instagram requires authentication. See INSTAGRAM_AUTH.md"
                 )
-            raise Exception(f"Download failed: {str(e)}")
+
+            # Check for auth errors
+            if 'login' in error_msg.lower() or '401' in error_msg or 'unauthorized' in error_msg.lower():
+                raise Exception(
+                    f"Authentication failed: {error_msg}\n"
+                    f"Your cookies may be expired. Re-export cookies.txt from browser."
+                )
+
+            raise Exception(f"Download failed: {error_msg}")
