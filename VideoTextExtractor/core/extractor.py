@@ -19,15 +19,24 @@ class MediaExtractor:
         if not text:
             return ""
 
-        # Remove all special characters except basic punctuation
+        # Remove all special characters except basic punctuation and numbers
         text = re.sub(r'[^a-zA-Z0-9\s.,!?\'-]', ' ', text)
+
+        # Fix multiple apostrophes
+        text = re.sub(r"'{2,}", "'", text)
+
+        # Fix spaces before apostrophes
+        text = re.sub(r"\s+'", "'", text)
 
         # Remove excessive underscores and dashes
         text = re.sub(r'_{2,}', '', text)
         text = re.sub(r'-{2,}', '', text)
 
-        # Remove single character fragments surrounded by spaces
-        text = re.sub(r'\s[a-zA-Z]\s', ' ', text)
+        # Remove usernames/handles (words starting with @)
+        text = re.sub(r'@\w+', '', text)
+
+        # Remove single character fragments surrounded by spaces (but not 'I' or 'A')
+        text = re.sub(r'\s[b-hj-zB-HJ-Z]\s', ' ', text)
 
         # Normalize whitespace
         text = ' '.join(text.split())
@@ -36,7 +45,7 @@ class MediaExtractor:
         if len(text) < 10:
             return ""
 
-        # Remove if mostly non-alphabetic (noise)
+        # Remove if mostly non-alphabetic (noise) - but allow some numbers
         alpha_count = sum(c.isalpha() for c in text)
         if alpha_count < 15:  # At least 15 letters
             return ""
@@ -45,13 +54,18 @@ class MediaExtractor:
 
     def is_garbage_word(self, word):
         """Check if a word is likely garbage/noise"""
+        # Single digit numbers are OK (1-8 list items)
+        if word.isdigit():
+            return False
+
         if len(word) <= 1:
             return True
 
-        # Common OCR garbage words (but NOT common English words)
+        # Common OCR garbage words and usernames (but NOT common English words)
         garbage_list = ['ora', 'mil', 'wy', 'eel', 'ae', 'bo', 'rf', 'fag', 'fay',
                        'va', 'gj', 'Soe', 'Hal', 'pane', 'Chee', 'siaee', 'nites',
-                       'Aap', 'Ti', 'Al', 'Ee', 'Sg', 'NE']
+                       'Aap', 'Ti', 'Ee', 'Sg', 'NE', 'att', 'tiie', 'Ses',
+                       'thebizthoughts', 'Ax']
         if word in garbage_list or word.lower() in garbage_list:
             return True
 
@@ -76,10 +90,10 @@ class MediaExtractor:
             if upper_count > len(word) * 0.6:  # More than 60% uppercase
                 return True
 
-        # Check for words with numbers and letters mixed (like "r1")
+        # Check for mixed alpha-digit in very short words only
         has_alpha = any(c.isalpha() for c in word)
         has_digit = any(c.isdigit() for c in word)
-        if has_alpha and has_digit and len(word) <= 3:
+        if has_alpha and has_digit and len(word) <= 2:  # Changed from 3 to 2
             return True
 
         # Single uppercase letter words (I, A are OK, but other single letters are noise)
