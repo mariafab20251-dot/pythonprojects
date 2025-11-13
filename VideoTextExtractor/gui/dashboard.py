@@ -101,8 +101,28 @@ class Dashboard:
                 self.log(f"Processing {idx}/{total}: {url}")
 
                 try:
-                    self.processor.process_video(url, platform, self.log)
-                    success_count += 1
+                    # Check if already processed
+                    if self.processor.db.is_processed(url):
+                        response = messagebox.askyesno(
+                            "Already Processed",
+                            f"This video has already been processed:\n{url}\n\nDo you want to reprocess it?",
+                            parent=self.root
+                        )
+                        if not response:
+                            self.log(f"⏭️ Skipping (user chose not to reprocess)")
+                            success_count += 1
+                            progress = (idx / total) * 100
+                            self.progress_var.set(progress)
+                            continue
+
+                        # User wants to reprocess
+                        self.log(f"♻️ Reprocessing video...")
+                        result = self.processor.process_video(url, platform, self.log, force_reprocess=True)
+                    else:
+                        result = self.processor.process_video(url, platform, self.log)
+
+                    if result != "skipped":
+                        success_count += 1
                 except Exception as e:
                     failed_count += 1
                     self.log(f"❌ Skipping to next video")

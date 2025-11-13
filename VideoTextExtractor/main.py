@@ -46,10 +46,10 @@ class VideoProcessor:
 
         return [url_input]
 
-    def process_video(self, url, platform, log_callback):
-        if self.db.is_processed(url):
+    def process_video(self, url, platform, log_callback, force_reprocess=False):
+        if self.db.is_processed(url) and not force_reprocess:
             log_callback(f"⏭️ Skipping (already processed): {url}")
-            return
+            return "skipped"
 
         video_path = None
         try:
