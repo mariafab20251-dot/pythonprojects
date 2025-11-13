@@ -16,12 +16,18 @@ class VideoDownloader:
         if output_path.exists():
             return str(output_path)
 
+        print(f"[DEBUG] Attempting download for: {url}")
+        print(f"[DEBUG] Output path: {output_path}")
+        print(f"[DEBUG] Cookies file path: {self.cookies_file}")
+        print(f"[DEBUG] Cookies file exists: {self.cookies_file.exists()}")
+
         ydl_opts = {
             'format': 'best[ext=mp4]/best',
             'outtmpl': str(output_path.with_suffix('')),
-            'quiet': True,
-            'no_warnings': True,
+            'quiet': False,
+            'no_warnings': False,
             'retries': MAX_RETRIES,
+            'verbose': True,
             'http_headers': {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
@@ -30,25 +36,36 @@ class VideoDownloader:
         # Add cookies if file exists
         if self.cookies_file.exists():
             ydl_opts['cookiefile'] = str(self.cookies_file)
+            print(f"[DEBUG] Using cookies from: {self.cookies_file}")
+        else:
+            print(f"[DEBUG] WARNING: No cookies.txt found!")
 
         # Debug: Check cookies file
         cookies_exists = self.cookies_file.exists()
 
         try:
+            print(f"[DEBUG] Starting yt-dlp download...")
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
+
+            print(f"[DEBUG] Download completed, checking for output files...")
 
             # Handle extension variations
             for ext in ['.mp4', '.mkv', '.webm']:
                 potential_path = output_path.with_suffix(ext)
+                print(f"[DEBUG] Checking for: {potential_path}")
                 if potential_path.exists():
+                    print(f"[DEBUG] Found file with extension: {ext}")
                     if ext != '.mp4':
                         potential_path.rename(output_path)
                     return str(output_path)
 
+            print(f"[DEBUG] ERROR: No output file found after download!")
             return None
         except Exception as e:
             error_msg = str(e)
+            print(f"[DEBUG] Exception occurred: {error_msg}")
+            print(f"[DEBUG] Exception type: {type(e).__name__}")
 
             # Add cookies debug info
             if not cookies_exists:
