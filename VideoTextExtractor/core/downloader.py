@@ -1,12 +1,14 @@
 import yt_dlp
 from pathlib import Path
 from config import VIDEOS_DIR, MAX_RETRIES
+import os
 
 class VideoDownloader:
     def __init__(self, platform):
         self.platform = platform
         self.output_dir = VIDEOS_DIR / platform
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.cookies_file = VIDEOS_DIR.parent / "cookies.txt"
 
     def download(self, url, video_id):
         output_path = self.output_dir / f"{video_id}.mp4"
@@ -20,9 +22,14 @@ class VideoDownloader:
             'quiet': True,
             'no_warnings': True,
             'retries': MAX_RETRIES,
-            'cookiefile': None,
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'http_headers': {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
         }
+
+        # Add cookies if file exists
+        if self.cookies_file.exists():
+            ydl_opts['cookiefile'] = str(self.cookies_file)
 
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -38,4 +45,10 @@ class VideoDownloader:
 
             return None
         except Exception as e:
+            error_msg = str(e).lower()
+            if 'login' in error_msg or '401' in error_msg or 'unauthorized' in error_msg:
+                raise Exception(
+                    f"Authentication required for {self.platform}. "
+                    f"Please add cookies.txt file. See INSTAGRAM_AUTH.md for instructions."
+                )
             raise Exception(f"Download failed: {str(e)}")

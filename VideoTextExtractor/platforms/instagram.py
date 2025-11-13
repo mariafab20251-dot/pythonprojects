@@ -1,9 +1,34 @@
 import instaloader
 import re
+from pathlib import Path
 
 class InstagramScraper:
     def __init__(self):
-        self.loader = instaloader.Instaloader()
+        self.loader = instaloader.Instaloader(
+            download_videos=False,
+            download_video_thumbnails=False,
+            download_geotags=False,
+            download_comments=False,
+            save_metadata=False,
+            compress_json=False
+        )
+        self.session_file = Path(__file__).parent.parent / "data" / "ig_session"
+        self._load_session()
+
+    def _load_session(self):
+        if self.session_file.exists():
+            try:
+                self.loader.load_session_from_file(str(self.session_file))
+            except:
+                pass
+
+    def login(self, username, password):
+        try:
+            self.loader.login(username, password)
+            self.loader.save_session_to_file(str(self.session_file))
+            return True
+        except Exception as e:
+            raise Exception(f"Instagram login failed: {str(e)}")
 
     def extract_video_id(self, url):
         # Extract shortcode from URL
@@ -21,27 +46,14 @@ class InstagramScraper:
     def get_post_metadata(self, url):
         video_id = self.extract_video_id(url)
         if not video_id:
-            return None, None, None
+            return None, "", ""
 
-        try:
-            post = instaloader.Post.from_shortcode(self.loader.context, video_id)
-
-            captions = post.caption or ""
-            hashtags = " ".join([tag for tag in re.findall(r'#\w+', captions)])
-
-            return video_id, captions, hashtags
-        except Exception as e:
-            return video_id, "", ""
+        # Return basic info - yt-dlp will handle download
+        return video_id, "", ""
 
     def get_all_videos_from_profile(self, username):
-        try:
-            profile = instaloader.Profile.from_username(self.loader.context, username)
-            video_urls = []
-
-            for post in profile.get_posts():
-                if post.is_video:
-                    video_urls.append(f"https://instagram.com/reel/{post.shortcode}")
-
-            return video_urls
-        except Exception as e:
-            raise Exception(f"Failed to fetch profile videos: {str(e)}")
+        raise NotImplementedError(
+            "Instagram profile scraping requires authentication.\n"
+            "Please use direct video URLs instead.\n"
+            "See INSTAGRAM_AUTH.md for setup instructions."
+        )
