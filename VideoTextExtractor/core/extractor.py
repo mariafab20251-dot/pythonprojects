@@ -1,18 +1,25 @@
 import whisper
-import pytesseract
+import easyocr
 from PIL import Image, ImageEnhance, ImageFilter
 from moviepy.editor import VideoFileClip
 import os
 import re
-from config import FRAMES_DIR, FRAME_INTERVAL, WHISPER_MODEL, TESSERACT_CONFIG
+from config import FRAMES_DIR, FRAME_INTERVAL, WHISPER_MODEL
 
 class MediaExtractor:
     def __init__(self):
         self.whisper_model = None
+        self.ocr_reader = None
 
     def load_whisper(self):
         if self.whisper_model is None:
             self.whisper_model = whisper.load_model(WHISPER_MODEL)
+
+    def load_easyocr(self):
+        if self.ocr_reader is None:
+            # Initialize EasyOCR with English language
+            # gpu=False for CPU, set to True if you have CUDA GPU
+            self.ocr_reader = easyocr.Reader(['en'], gpu=False)
 
     def clean_ocr_text(self, text):
         """Clean and normalize OCR text"""
@@ -240,6 +247,7 @@ class MediaExtractor:
         return image
 
     def extract_overlay_text(self, video_path, video_id):
+        self.load_easyocr()
         clip = None
         frames_dir = FRAMES_DIR / video_id
 
@@ -261,8 +269,12 @@ class MediaExtractor:
                     img = Image.open(frame_path)
                     img = self.preprocess_image(img)
 
-                    # Extract text
-                    raw_text = pytesseract.image_to_string(img, config=TESSERACT_CONFIG)
+                    # Extract text using EasyOCR
+                    # EasyOCR returns list of (bbox, text, confidence)
+                    results = self.ocr_reader.readtext(str(frame_path))
+
+                    # Combine all detected text
+                    raw_text = ' '.join([detection[1] for detection in results])
                     cleaned_text = self.clean_ocr_text(raw_text)
 
                     # Filter sentences to remove garbage

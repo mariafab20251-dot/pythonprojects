@@ -21,7 +21,6 @@ WHISPER_MODEL = "base"  # tiny, base, small, medium, large
 
 # OCR settings
 FRAME_INTERVAL = 2  # Extract frame every N seconds
-TESSERACT_CONFIG = "--oem 3 --psm 6"
 
 # Download settings
 KEEP_VIDEOS = True  # Keep downloaded videos after processing (set to False to auto-delete)
