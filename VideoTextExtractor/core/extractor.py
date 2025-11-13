@@ -43,6 +43,45 @@ class MediaExtractor:
 
         return text.strip()
 
+    def filter_sentences(self, text):
+        """Filter out garbage sentences from text"""
+        if not text:
+            return ""
+
+        # Split into sentences (rough)
+        sentences = re.split(r'[.!?]+', text)
+
+        clean_sentences = []
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence:
+                continue
+
+            words = sentence.split()
+
+            # Filter criteria for a valid sentence
+            if len(words) < 3:  # Too short
+                continue
+
+            # Count very short words (1-2 letters)
+            short_words = sum(1 for w in words if len(w) <= 2)
+            short_word_ratio = short_words / len(words)
+
+            # Reject if more than 40% are very short words (likely garbage)
+            if short_word_ratio > 0.4:
+                continue
+
+            # Count words with 4+ letters (likely real words)
+            real_words = sum(1 for w in words if len(w) >= 4)
+
+            # Need at least 3 real words for a valid sentence
+            if real_words < 3:
+                continue
+
+            clean_sentences.append(sentence)
+
+        return '. '.join(clean_sentences) if clean_sentences else ""
+
     def normalize_for_comparison(self, text):
         """Strip text down to just words for similarity comparison"""
         # Remove all non-alphabetic characters
@@ -125,16 +164,19 @@ class MediaExtractor:
                     raw_text = pytesseract.image_to_string(img, config=TESSERACT_CONFIG)
                     cleaned_text = self.clean_ocr_text(raw_text)
 
-                    if cleaned_text:
+                    # Filter sentences to remove garbage
+                    filtered_text = self.filter_sentences(cleaned_text)
+
+                    if filtered_text:
                         # Check if this text is similar to any we already have
                         is_duplicate = False
                         for existing_text in unique_texts:
-                            if self.are_similar_texts(cleaned_text, existing_text):
+                            if self.are_similar_texts(filtered_text, existing_text):
                                 is_duplicate = True
                                 break
 
                         if not is_duplicate:
-                            unique_texts.append(cleaned_text)
+                            unique_texts.append(filtered_text)
 
                 except Exception:
                     continue
