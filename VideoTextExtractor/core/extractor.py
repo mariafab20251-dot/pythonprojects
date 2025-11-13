@@ -19,43 +19,61 @@ class MediaExtractor:
         if not text:
             return ""
 
-        # Remove special characters and excessive whitespace
-        text = re.sub(r'[^\w\s.,!?-]', ' ', text)
+        # Remove all special characters except basic punctuation
+        text = re.sub(r'[^a-zA-Z0-9\s.,!?\'-]', ' ', text)
+
+        # Remove excessive underscores and dashes
+        text = re.sub(r'_{2,}', '', text)
+        text = re.sub(r'-{2,}', '', text)
+
+        # Remove single character fragments surrounded by spaces
+        text = re.sub(r'\s[a-zA-Z]\s', ' ', text)
 
         # Normalize whitespace
         text = ' '.join(text.split())
 
         # Remove very short fragments (likely noise)
-        if len(text) < 3:
+        if len(text) < 10:
             return ""
 
         # Remove if mostly non-alphabetic (noise)
-        alpha_ratio = sum(c.isalpha() for c in text) / max(len(text), 1)
-        if alpha_ratio < 0.5:
+        alpha_count = sum(c.isalpha() for c in text)
+        if alpha_count < 15:  # At least 15 letters
             return ""
 
         return text.strip()
 
-    def are_similar_texts(self, text1, text2, threshold=0.8):
+    def normalize_for_comparison(self, text):
+        """Strip text down to just words for similarity comparison"""
+        # Remove all non-alphabetic characters
+        text = re.sub(r'[^a-zA-Z\s]', '', text)
+        # Lowercase and normalize spaces
+        text = ' '.join(text.lower().split())
+        return text
+
+    def are_similar_texts(self, text1, text2, threshold=0.75):
         """Check if two texts are similar (for deduplication)"""
         if not text1 or not text2:
             return False
 
-        # Normalize
-        t1 = text1.lower().strip()
-        t2 = text2.lower().strip()
+        # Normalize both texts to just words
+        norm1 = self.normalize_for_comparison(text1)
+        norm2 = self.normalize_for_comparison(text2)
 
-        # Exact match
-        if t1 == t2:
+        if not norm1 or not norm2:
+            return False
+
+        # Exact match after normalization
+        if norm1 == norm2:
             return True
 
         # One contains the other (substring match)
-        if t1 in t2 or t2 in t1:
+        if norm1 in norm2 or norm2 in norm1:
             return True
 
-        # Simple similarity: compare word sets
-        words1 = set(t1.split())
-        words2 = set(t2.split())
+        # Word-based similarity
+        words1 = set(norm1.split())
+        words2 = set(norm2.split())
 
         if not words1 or not words2:
             return False
@@ -121,8 +139,15 @@ class MediaExtractor:
                 except Exception:
                     continue
 
-            # Join unique texts
-            result = ". ".join(unique_texts) if unique_texts else ""
+            # Join unique texts - pick the longest/cleanest version if we have similar ones
+            if unique_texts:
+                # Sort by length descending - longest is usually cleanest
+                unique_texts.sort(key=len, reverse=True)
+                # Return the longest (cleanest) version
+                result = unique_texts[0]
+            else:
+                result = ""
+
             return result
 
         finally:
