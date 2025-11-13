@@ -20,7 +20,8 @@ class Dashboard:
         tk.Label(frame_top, text="Platform:").grid(row=0, column=0, sticky=tk.W)
         self.platform_var = tk.StringVar(value="instagram")
         platform_combo = ttk.Combobox(frame_top, textvariable=self.platform_var,
-                                       values=["instagram"], state="readonly", width=15)
+                                       values=["instagram", "tiktok", "youtube", "facebook"],
+                                       state="readonly", width=15)
         platform_combo.grid(row=0, column=1, padx=5)
 
         tk.Label(frame_top, text="Auth:").grid(row=0, column=2, padx=(20,5))
@@ -87,6 +88,9 @@ class Dashboard:
         thread.start()
 
     def _process_thread(self, url_input, platform):
+        failed_count = 0
+        success_count = 0
+
         try:
             urls = self.processor.parse_input(url_input, platform)
             total = len(urls)
@@ -95,15 +99,21 @@ class Dashboard:
 
             for idx, url in enumerate(urls, 1):
                 self.log(f"Processing {idx}/{total}: {url}")
-                self.processor.process_video(url, platform, self.log)
+
+                try:
+                    self.processor.process_video(url, platform, self.log)
+                    success_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    self.log(f"❌ Skipping to next video")
 
                 progress = (idx / total) * 100
                 self.progress_var.set(progress)
 
-            self.log("✅ All videos processed successfully")
+            self.log(f"✅ Processing complete: {success_count} succeeded, {failed_count} failed")
             self.progress_var.set(0)
         except Exception as e:
-            self.log(f"❌ Error: {str(e)}")
+            self.log(f"❌ Fatal error: {str(e)}")
         finally:
             self.process_btn.config(state=tk.NORMAL)
 

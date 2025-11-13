@@ -14,31 +14,46 @@ class MediaExtractor:
             self.whisper_model = whisper.load_model(WHISPER_MODEL)
 
     def extract_overlay_text(self, video_path, video_id):
-        clip = VideoFileClip(video_path)
-        duration = int(clip.duration)
-
+        clip = None
         frames_dir = FRAMES_DIR / video_id
-        frames_dir.mkdir(parents=True, exist_ok=True)
 
-        all_text = []
+        try:
+            clip = VideoFileClip(video_path)
+            duration = int(clip.duration)
 
-        for t in range(0, duration, FRAME_INTERVAL):
-            frame_path = frames_dir / f"frame_{t}.png"
-            clip.save_frame(str(frame_path), t)
+            frames_dir.mkdir(parents=True, exist_ok=True)
 
-            img = Image.open(frame_path)
-            text = pytesseract.image_to_string(img, config=TESSERACT_CONFIG)
-            if text.strip():
-                all_text.append(text.strip())
+            all_text = []
 
-        clip.close()
+            for t in range(0, duration, FRAME_INTERVAL):
+                try:
+                    frame_path = frames_dir / f"frame_{t}.png"
+                    clip.save_frame(str(frame_path), t)
 
-        # Cleanup frames
-        for f in frames_dir.glob("*.png"):
-            f.unlink()
-        frames_dir.rmdir()
+                    img = Image.open(frame_path)
+                    text = pytesseract.image_to_string(img, config=TESSERACT_CONFIG)
+                    if text.strip():
+                        all_text.append(text.strip())
+                except Exception:
+                    continue
 
-        return " | ".join(set(all_text))
+            return " | ".join(set(all_text))
+
+        finally:
+            if clip:
+                clip.close()
+
+            # Cleanup frames
+            if frames_dir.exists():
+                for f in frames_dir.glob("*.png"):
+                    try:
+                        f.unlink()
+                    except:
+                        pass
+                try:
+                    frames_dir.rmdir()
+                except:
+                    pass
 
     def extract_speech(self, video_path):
         self.load_whisper()

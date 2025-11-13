@@ -17,9 +17,11 @@ class VideoDownloader:
         ydl_opts = {
             'format': 'best[ext=mp4]/best',
             'outtmpl': str(output_path.with_suffix('')),
-            'quiet': False,
-            'no_warnings': False,
+            'quiet': True,
+            'no_warnings': True,
             'retries': MAX_RETRIES,
+            'cookiefile': None,
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
 
         try:
