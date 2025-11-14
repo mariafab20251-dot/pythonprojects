@@ -37,10 +37,13 @@ class InstagramScraper:
 
     def extract_video_id(self, url):
         # Extract shortcode from URL
+        # Supports both formats:
+        # instagram.com/reel/ABC123 (direct)
+        # instagram.com/username/reel/ABC123 (with username)
         patterns = [
-            r'instagram.com/reel/([A-Za-z0-9_-]+)',
-            r'instagram.com/p/([A-Za-z0-9_-]+)',
-            r'instagram.com/tv/([A-Za-z0-9_-]+)',
+            r'instagram\.com/(?:[^/]+/)?reel/([A-Za-z0-9_-]+)',
+            r'instagram\.com/(?:[^/]+/)?p/([A-Za-z0-9_-]+)',
+            r'instagram\.com/(?:[^/]+/)?tv/([A-Za-z0-9_-]+)',
         ]
         for pattern in patterns:
             match = re.search(pattern, url)

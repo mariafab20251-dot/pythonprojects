@@ -142,9 +142,14 @@ class VideoProcessor:
                 return None
 
             elif platform == 'instagram':
-                # instagram.com/reel/xxx or instagram.com/p/xxx
-                # Can't extract username from video URL
-                return None
+                # instagram.com/username/reel/xxx or instagram.com/reel/xxx
+                # Try to extract username from URL
+                match = re.search(r'instagram\.com/([^/]+)/(?:reel|p|tv)/', url)
+                if match:
+                    username = match.group(1)
+                    # Make sure it's not 'reel', 'p', or 'tv' (direct format)
+                    if username not in ['reel', 'p', 'tv']:
+                        channel_names.add(username)
 
             elif platform == 'tiktok':
                 # tiktok.com/@username/video/xxx
