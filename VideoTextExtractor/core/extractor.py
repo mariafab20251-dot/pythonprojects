@@ -195,33 +195,98 @@ class MediaExtractor:
         if not text:
             return text
 
-        # Pattern to match numbers followed by period or standalone (1. or 1 )
-        # This will match: "1.", "1 ", "2.", "2 ", etc.
-        pattern = r'\s*(\d+)\.?\s+'
+        # Detect CTA patterns (call to action)
+        cta_patterns = [
+            r'(follow me)', r'(subscribe)', r'(like and subscribe)',
+            r'(hit the bell)', r'(turn on notifications)', r'(advise you to follow)',
+            r'(check out)', r'(link in bio)', r'(comment below)'
+        ]
 
-        # Split text by numbered patterns
-        parts = re.split(pattern, text)
+        cta_text = ""
+        for pattern in cta_patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                # Extract everything from the CTA onwards
+                cta_start = match.start()
+                # Find the sentence containing CTA
+                # Look for sentence before CTA
+                before_cta = text[:cta_start].rstrip()
+                sentences = re.split(r'[.!?]\s+', before_cta)
+                if sentences:
+                    # Last complete sentence before CTA
+                    last_sentence_end = before_cta.rfind(sentences[-1])
+                    if last_sentence_end > 0:
+                        cta_text = text[last_sentence_end + len(sentences[-1]):].strip()
+                        text = text[:last_sentence_end + len(sentences[-1])].strip()
+                        # Clean up CTA
+                        cta_text = re.sub(r'^\.\s*', '', cta_text)  # Remove leading period
+                        break
 
-        if len(parts) <= 2:
-            # No numbered list detected, return as-is
+        # Find all numbers in the text (1-20 range for list items)
+        number_pattern = r'\b([1-9]|1[0-9]|20)\b\.?\s*'
+        numbers_found = list(re.finditer(number_pattern, text))
+
+        if len(numbers_found) < 2:
+            # Not a numbered list, return as-is with CTA
+            if cta_text:
+                return f"{text}\n\n{cta_text}"
             return text
 
-        formatted_lines = []
-        current_number = None
+        # Extract items based on number positions
+        items = []
 
-        for i, part in enumerate(parts):
-            if i == 0 and part.strip():
-                # Text before first number (title or header)
-                formatted_lines.append(part.strip())
-            elif part.strip().isdigit():
-                # This is a number
-                current_number = part.strip()
-            elif current_number and part.strip():
-                # This is the text following a number
-                formatted_lines.append(f"{current_number}. {part.strip()}")
-                current_number = None
+        for i, match in enumerate(numbers_found):
+            num = int(match.group(1))
+            start_pos = match.end()
 
-        return '\n'.join(formatted_lines) if formatted_lines else text
+            # Find end position (start of next number or end of text)
+            if i + 1 < len(numbers_found):
+                end_pos = numbers_found[i + 1].start()
+            else:
+                end_pos = len(text)
+
+            # Extract item text
+            item_text = text[start_pos:end_pos].strip()
+
+            # Clean up item text
+            item_text = re.sub(r'^\d+\.?\s*', '', item_text)  # Remove any leading numbers
+            item_text = re.sub(r'\s+', ' ', item_text)  # Normalize spaces
+            item_text = item_text.rstrip('.,!?')  # Remove trailing punctuation
+
+            if item_text:
+                items.append((num, item_text))
+
+        if not items:
+            if cta_text:
+                return f"{text}\n\n{cta_text}"
+            return text
+
+        # Extract title (everything before first number)
+        first_number_pos = numbers_found[0].start()
+        title = text[:first_number_pos].strip()
+
+        # Clean up title
+        title = re.sub(r'\s+', ' ', title)
+        title = title.rstrip('.,!?')
+
+        # Build formatted output
+        result_lines = []
+
+        # Add title if exists
+        if title:
+            result_lines.append(title)
+            result_lines.append("")  # Blank line after title
+
+        # Add numbered items
+        for num, item_text in items:
+            result_lines.append(f"{num}. {item_text}")
+
+        # Add CTA with double line break
+        if cta_text:
+            result_lines.append("")  # Blank line
+            result_lines.append(cta_text)
+
+        return '\n'.join(result_lines)
 
     def normalize_for_comparison(self, text):
         """Strip text down to just words for similarity comparison"""
