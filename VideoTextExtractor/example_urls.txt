@@ -1,0 +1,20 @@
+# Example URL List File
+# Lines starting with # are comments and will be ignored
+
+# You can put one URL per line:
+https://instagram.com/reel/ABC123
+https://instagram.com/reel/DEF456
+https://instagram.com/reel/GHI789
+
+# Or multiple URLs on one line separated by commas:
+https://youtube.com/watch?v=xxx, https://youtube.com/watch?v=yyy
+
+# For best organization, use a profile/channel URL instead:
+# https://instagram.com/username
+# https://youtube.com/@channelname
+# https://tiktok.com/@username
+
+# Blank lines are ignored
+
+
+# Mix and match formats - the system will parse everything correctly

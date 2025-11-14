@@ -39,8 +39,17 @@ class Dashboard:
         frame_input.pack(fill=tk.X)
 
         tk.Label(frame_input, text="Input URL/Channel/IDs:").pack(anchor=tk.W)
-        self.input_text = tk.Entry(frame_input, width=80)
-        self.input_text.pack(fill=tk.X, pady=5)
+
+        # Entry and browse file button in same row
+        entry_frame = tk.Frame(frame_input)
+        entry_frame.pack(fill=tk.X, pady=5)
+
+        self.input_text = tk.Entry(entry_frame, width=80)
+        self.input_text.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.browse_file_btn = tk.Button(entry_frame, text="Browse File", command=self.browse_url_file,
+                                         bg="#607D8B", fg="white", width=12)
+        self.browse_file_btn.pack(side=tk.LEFT, padx=(5, 0))
 
         # Buttons
         frame_buttons = tk.Frame(self.root, padx=10, pady=5)
@@ -98,6 +107,48 @@ class Dashboard:
     def stop_process(self):
         self.stop_processing = True
         self.log("🛑 Stop requested - will stop after current video...")
+
+    def browse_url_file(self):
+        """Browse and load URLs from a text file"""
+        file_path = filedialog.askopenfilename(
+            title="Select URL List File",
+            filetypes=[
+                ("Text files", "*.txt"),
+                ("All files", "*.*")
+            ]
+        )
+
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # Parse URLs - one per line or comma-separated
+            urls = []
+            for line in content.split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):  # Skip comments
+                    # Check if line has comma-separated URLs
+                    if ',' in line:
+                        urls.extend([u.strip() for u in line.split(',') if u.strip()])
+                    else:
+                        urls.append(line)
+
+            if not urls:
+                messagebox.showwarning("Empty File", "No URLs found in the file.")
+                return
+
+            # Join URLs with commas and set in input field
+            self.input_text.delete(0, tk.END)
+            self.input_text.insert(0, ', '.join(urls))
+
+            self.log(f"📁 Loaded {len(urls)} URL(s) from file: {file_path}")
+
+        except Exception as e:
+            messagebox.showerror("File Error", f"Failed to read file:\n{str(e)}")
+            self.log(f"❌ Failed to load URL file: {str(e)}")
 
     def process_input(self):
         url_input = self.input_text.get().strip()

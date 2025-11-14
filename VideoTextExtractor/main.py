@@ -94,9 +94,18 @@ class VideoProcessor:
         return channel_folder
 
     def parse_input(self, url_input, platform):
+        # Handle comma-separated URLs
         if ',' in url_input:
-            self.current_channel_folder = None
-            return [url.strip() for url in url_input.split(',')]
+            urls = [url.strip() for url in url_input.split(',')]
+
+            # Try to detect if all URLs are from the same channel
+            channel_name = self.detect_channel_from_urls(urls, platform)
+            if channel_name:
+                self.current_channel_folder = self.setup_channel_folder(channel_name, platform)
+            else:
+                self.current_channel_folder = None
+
+            return urls
 
         scraper = self.scrapers[platform]
 
@@ -117,6 +126,43 @@ class VideoProcessor:
         # Single URL - no channel folder needed
         self.current_channel_folder = None
         return [url_input]
+
+    def detect_channel_from_urls(self, urls, platform):
+        """Detect if all URLs belong to the same channel"""
+        if not urls:
+            return None
+
+        channel_names = set()
+
+        for url in urls[:10]:  # Check first 10 URLs only
+            if platform == 'youtube':
+                # Extract channel from video URL
+                # youtube.com/watch?v=xxx or youtube.com/shorts/xxx
+                # We can't reliably extract channel from video URLs, so return None
+                return None
+
+            elif platform == 'instagram':
+                # instagram.com/reel/xxx or instagram.com/p/xxx
+                # Can't extract username from video URL
+                return None
+
+            elif platform == 'tiktok':
+                # tiktok.com/@username/video/xxx
+                match = re.search(r'tiktok\.com/@([^/]+)/', url)
+                if match:
+                    channel_names.add(match.group(1))
+
+            elif platform == 'facebook':
+                # facebook.com/username/videos/xxx
+                match = re.search(r'facebook\.com/([^/]+)/', url)
+                if match:
+                    channel_names.add(match.group(1))
+
+        # If all URLs have the same channel name, return it
+        if len(channel_names) == 1:
+            return channel_names.pop()
+
+        return None
 
     def process_video(self, url, platform, log_callback, force_reprocess=False):
         if self.db.is_processed(url) and not force_reprocess:
