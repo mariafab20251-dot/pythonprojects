@@ -171,11 +171,30 @@ class Dashboard:
                 messagebox.showwarning("Empty File", "No URLs found in the file.")
                 return
 
+            # Detect if this file is from a metadata scan (in channels/ folder)
+            # If so, set the channel folder for the processor
+            file_path_obj = Path(file_path)
+            if 'channels' in file_path_obj.parts:
+                # Extract channel folder from path
+                # e.g., channels/youtube/channelname/urls_xxx.txt
+                try:
+                    channels_idx = file_path_obj.parts.index('channels')
+                    if len(file_path_obj.parts) > channels_idx + 2:
+                        platform = file_path_obj.parts[channels_idx + 1]
+                        channel_name = file_path_obj.parts[channels_idx + 2]
+                        channel_folder = file_path_obj.parent
+
+                        # Set this as the current channel folder for processing
+                        self.processor.current_channel_folder = channel_folder
+                        self.log(f"📁 Detected channel folder: {platform}/{channel_name}")
+                except (ValueError, IndexError):
+                    pass
+
             # Join URLs with commas and set in input field
             self.input_text.delete(0, tk.END)
             self.input_text.insert(0, ', '.join(urls))
 
-            self.log(f"📁 Loaded {len(urls)} URL(s) from file: {file_path}")
+            self.log(f"📁 Loaded {len(urls)} URL(s) from file: {file_path_obj.name}")
 
         except Exception as e:
             messagebox.showerror("File Error", f"Failed to read file:\n{str(e)}")
@@ -645,6 +664,10 @@ class Dashboard:
                         txt_file = output_path / f"urls_{timestamp}.txt"
                         with open(txt_file, 'r', encoding='utf-8') as f:
                             urls = [line.strip() for line in f if line.strip()]
+
+                        # Set the channel folder so Excel saves to the right place
+                        self.processor.current_channel_folder = output_path
+                        self.log(f"📁 Processing will save to: {output_path.name}/")
 
                         self.input_text.delete(0, tk.END)
                         self.input_text.insert(0, ', '.join(urls[:10]))  # Load first 10
