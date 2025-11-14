@@ -38,6 +38,18 @@ rm data/processed.db
 ### 5. Test With Problem Video
 Process the same video that had issues before and compare results.
 
+## New Feature: Browse Folder
+
+You can now process already downloaded videos directly without downloading them again:
+
+1. Click **"Browse Folder"** button
+2. Select the folder containing your downloaded videos
+3. All video files will be automatically processed for OCR and speech extraction
+
+**Supported formats:** mp4, avi, mov, mkv, flv, wmv, webm
+
+Results are saved to `data/reports/` with the filename as the video ID.
+
 ## Benefits of EasyOCR
 - ✅ **Much more accurate** with stylized fonts
 - ✅ Better handling of shadows and overlays
