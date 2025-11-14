@@ -115,6 +115,63 @@ class VideoProcessor:
         from config import KEEP_VIDEOS
         return KEEP_VIDEOS
 
+    def process_local_video(self, video_path, log_callback):
+        """Process a local video file without downloading"""
+        import hashlib
+        from pathlib import Path
+
+        try:
+            video_file = Path(video_path)
+            if not video_file.exists():
+                raise Exception(f"Video file not found: {video_path}")
+
+            # Generate video ID from filename
+            video_id = video_file.stem  # filename without extension
+
+            # Use file path hash as URL for duplicate detection
+            url_hash = hashlib.md5(str(video_path).encode()).hexdigest()
+
+            # Check if already processed
+            if self.db.is_processed(url_hash):
+                log_callback(f"⏭️ Skipping (already processed): {video_file.name}")
+                return "skipped"
+
+            log_callback(f"🔍 Extracting overlay text...")
+            try:
+                overlay_text = self.extractor.extract_overlay_text(str(video_path), video_id)
+            except Exception as e:
+                log_callback(f"⚠️ OCR failed: {str(e)}")
+                overlay_text = ""
+
+            log_callback(f"🎤 Transcribing speech...")
+            try:
+                speech_text = self.extractor.extract_speech(str(video_path))
+            except Exception as e:
+                log_callback(f"⚠️ Whisper failed: {str(e)}")
+                speech_text = ""
+
+            data = {
+                'video_id': video_id,
+                'platform': 'local',
+                'url': str(video_path),
+                'overlay_text': overlay_text,
+                'speech_text': speech_text,
+                'captions': '',
+                'hashtags': '',
+                'timestamp': datetime.now().isoformat()
+            }
+
+            self.db.add_video(video_id, 'local', url_hash, overlay_text, speech_text, '', '')
+            self.exporter.export_to_csv(data)
+            self.exporter.export_to_json(data)
+            self.exporter.export_to_txt(data)
+
+            log_callback(f"✅ Completed: {video_file.name}")
+
+        except Exception as e:
+            log_callback(f"❌ Failed {video_path}: {str(e)}")
+            raise
+
 def main():
     root = tk.Tk()
     processor = VideoProcessor()

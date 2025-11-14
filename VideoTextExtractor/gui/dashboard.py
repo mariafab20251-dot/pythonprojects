@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, scrolledtext, messagebox
+from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
 from datetime import datetime
 
@@ -40,9 +40,13 @@ class Dashboard:
         frame_buttons = tk.Frame(self.root, padx=10, pady=5)
         frame_buttons.pack(fill=tk.X)
 
-        self.process_btn = tk.Button(frame_buttons, text="Process", command=self.process_input,
+        self.process_btn = tk.Button(frame_buttons, text="Process URLs", command=self.process_input,
                                       bg="#4CAF50", fg="white", width=15)
         self.process_btn.pack(side=tk.LEFT, padx=5)
+
+        self.browse_btn = tk.Button(frame_buttons, text="Browse Folder", command=self.browse_folder,
+                                     bg="#FF9800", fg="white", width=15)
+        self.browse_btn.pack(side=tk.LEFT, padx=5)
 
         self.export_btn = tk.Button(frame_buttons, text="Export", command=self.export_data,
                                      bg="#2196F3", fg="white", width=15)
@@ -136,6 +140,66 @@ class Dashboard:
             self.log(f"❌ Fatal error: {str(e)}")
         finally:
             self.process_btn.config(state=tk.NORMAL)
+
+    def browse_folder(self):
+        folder_path = filedialog.askdirectory(title="Select Folder with Downloaded Videos")
+
+        if not folder_path:
+            return
+
+        self.log(f"📁 Selected folder: {folder_path}")
+
+        self.process_btn.config(state=tk.DISABLED)
+        self.browse_btn.config(state=tk.DISABLED)
+
+        thread = threading.Thread(target=self._process_folder_thread, args=(folder_path,))
+        thread.daemon = True
+        thread.start()
+
+    def _process_folder_thread(self, folder_path):
+        import os
+        from pathlib import Path
+
+        failed_count = 0
+        success_count = 0
+
+        try:
+            # Get all video files from folder
+            video_extensions = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm']
+            video_files = []
+
+            for ext in video_extensions:
+                video_files.extend(Path(folder_path).glob(f'*{ext}'))
+
+            if not video_files:
+                self.log("❌ No video files found in folder")
+                return
+
+            total = len(video_files)
+            self.log(f"Found {total} video file(s) to process")
+
+            for idx, video_path in enumerate(video_files, 1):
+                self.log(f"Processing {idx}/{total}: {video_path.name}")
+
+                try:
+                    result = self.processor.process_local_video(str(video_path), self.log)
+                    if result != "skipped":
+                        success_count += 1
+                except Exception as e:
+                    failed_count += 1
+                    self.log(f"❌ Failed: {str(e)}")
+
+                progress = (idx / total) * 100
+                self.progress_var.set(progress)
+
+            self.log(f"✅ Processing complete: {success_count} succeeded, {failed_count} failed")
+            self.progress_var.set(0)
+
+        except Exception as e:
+            self.log(f"❌ Fatal error: {str(e)}")
+        finally:
+            self.process_btn.config(state=tk.NORMAL)
+            self.browse_btn.config(state=tk.NORMAL)
 
     def export_data(self):
         messagebox.showinfo("Export", "Data exported to results.csv and results.json")
