@@ -34,6 +34,19 @@ class Dashboard:
                                     bg="#9C27B0", fg="white", width=8)
         self.login_btn.grid(row=0, column=4, padx=5)
 
+        # Download option
+        self.download_videos_var = tk.BooleanVar(value=True)
+        self.download_check = tk.Checkbutton(
+            frame_top,
+            text="Download Videos",
+            variable=self.download_videos_var,
+            command=self.update_download_mode_label
+        )
+        self.download_check.grid(row=0, column=5, padx=(20, 0))
+
+        self.mode_label = tk.Label(frame_top, text="(Full: OCR + Speech + Metadata)", fg="green", font=("Arial", 8))
+        self.mode_label.grid(row=1, column=5, sticky=tk.W, padx=(20, 0))
+
         # Input field
         frame_input = tk.Frame(self.root, padx=10, pady=5)
         frame_input.pack(fill=tk.X)
@@ -107,6 +120,19 @@ class Dashboard:
     def stop_process(self):
         self.stop_processing = True
         self.log("🛑 Stop requested - will stop after current video...")
+
+    def update_download_mode_label(self):
+        """Update label based on download checkbox state"""
+        if self.download_videos_var.get():
+            self.mode_label.config(
+                text="(Full: OCR + Speech + Metadata)",
+                fg="green"
+            )
+        else:
+            self.mode_label.config(
+                text="(Metadata Only: Captions + Hashtags)",
+                fg="orange"
+            )
 
     def browse_url_file(self):
         """Browse and load URLs from a text file"""
@@ -202,9 +228,16 @@ class Dashboard:
 
                         # User wants to reprocess
                         self.log(f"♻️ Reprocessing video...")
-                        result = self.processor.process_video(url, platform, self.log, force_reprocess=True)
+                        result = self.processor.process_video(
+                            url, platform, self.log,
+                            force_reprocess=True,
+                            download_video=self.download_videos_var.get()
+                        )
                     else:
-                        result = self.processor.process_video(url, platform, self.log)
+                        result = self.processor.process_video(
+                            url, platform, self.log,
+                            download_video=self.download_videos_var.get()
+                        )
 
                     if result != "skipped":
                         success_count += 1

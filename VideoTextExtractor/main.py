@@ -169,7 +169,7 @@ class VideoProcessor:
 
         return None
 
-    def process_video(self, url, platform, log_callback, force_reprocess=False):
+    def process_video(self, url, platform, log_callback, force_reprocess=False, download_video=True):
         if self.db.is_processed(url) and not force_reprocess:
             log_callback(f"⏭️ Skipping (already processed): {url}")
             return "skipped"
@@ -182,26 +182,34 @@ class VideoProcessor:
             if not video_id:
                 raise Exception("Could not extract video ID")
 
-            log_callback(f"📥 Downloading video {video_id}...")
-            downloader = VideoDownloader(platform, channel_folder=self.current_channel_folder)
-            video_path = downloader.download(url, video_id)
+            overlay_text = ""
+            speech_text = ""
 
-            if not video_path or not os.path.exists(video_path):
-                raise Exception("Download failed")
+            if download_video:
+                # Full processing with video download
+                log_callback(f"📥 Downloading video {video_id}...")
+                downloader = VideoDownloader(platform, channel_folder=self.current_channel_folder)
+                video_path = downloader.download(url, video_id)
 
-            log_callback(f"🔍 Extracting overlay text...")
-            try:
-                overlay_text = self.extractor.extract_overlay_text(video_path, video_id)
-            except Exception as e:
-                log_callback(f"⚠️ OCR failed: {str(e)}")
-                overlay_text = ""
+                if not video_path or not os.path.exists(video_path):
+                    raise Exception("Download failed")
 
-            log_callback(f"🎤 Transcribing speech...")
-            try:
-                speech_text = self.extractor.extract_speech(video_path)
-            except Exception as e:
-                log_callback(f"⚠️ Whisper failed: {str(e)}")
-                speech_text = ""
+                log_callback(f"🔍 Extracting overlay text...")
+                try:
+                    overlay_text = self.extractor.extract_overlay_text(video_path, video_id)
+                except Exception as e:
+                    log_callback(f"⚠️ OCR failed: {str(e)}")
+                    overlay_text = ""
+
+                log_callback(f"🎤 Transcribing speech...")
+                try:
+                    speech_text = self.extractor.extract_speech(video_path)
+                except Exception as e:
+                    log_callback(f"⚠️ Whisper failed: {str(e)}")
+                    speech_text = ""
+            else:
+                # Metadata-only mode (no download)
+                log_callback(f"📝 Extracting metadata only (video download skipped)...")
 
             data = {
                 'video_id': video_id,
