@@ -118,6 +118,7 @@ class VideoProcessor:
     def process_local_video(self, video_path, log_callback):
         """Process a local video file without downloading"""
         import hashlib
+        import re
         from pathlib import Path
 
         try:
@@ -125,8 +126,19 @@ class VideoProcessor:
             if not video_file.exists():
                 raise Exception(f"Video file not found: {video_path}")
 
-            # Generate video ID from filename
-            video_id = video_file.stem  # filename without extension
+            # Generate safe video ID from filename
+            original_name = video_file.stem  # filename without extension
+
+            # Sanitize: remove special chars, limit length
+            safe_id = re.sub(r'[^a-zA-Z0-9_-]', '_', original_name)
+            safe_id = re.sub(r'_+', '_', safe_id)  # Replace multiple underscores
+            safe_id = safe_id.strip('_')  # Remove leading/trailing underscores
+
+            # Limit to 50 chars and add hash for uniqueness
+            file_hash = hashlib.md5(original_name.encode()).hexdigest()[:8]
+            if len(safe_id) > 50:
+                safe_id = safe_id[:50]
+            video_id = f"{safe_id}_{file_hash}"
 
             # Use file path hash as URL for duplicate detection
             url_hash = hashlib.md5(str(video_path).encode()).hexdigest()
@@ -153,7 +165,7 @@ class VideoProcessor:
             data = {
                 'video_id': video_id,
                 'platform': 'local',
-                'url': str(video_path),
+                'url': original_name,  # Use original filename instead of full path
                 'overlay_text': overlay_text,
                 'speech_text': speech_text,
                 'captions': '',
@@ -166,7 +178,7 @@ class VideoProcessor:
             self.exporter.export_to_json(data)
             self.exporter.export_to_txt(data)
 
-            log_callback(f"✅ Completed: {video_file.name}")
+            log_callback(f"✅ Completed: {original_name}")
 
         except Exception as e:
             log_callback(f"❌ Failed {video_path}: {str(e)}")
