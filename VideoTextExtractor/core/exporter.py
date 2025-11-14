@@ -120,3 +120,75 @@ Hashtags:  {data['hashtags'] or '(None)'}
         txt_path = reports_dir / f"{platform}_{video_id}.txt"
         with open(txt_path, 'w', encoding='utf-8') as f:
             f.write(report.strip())
+
+    def generate_excel_report(self, json_path=None, channel_folder=None):
+        """Generate clean Excel report from JSON data"""
+        import pandas as pd
+        from openpyxl.styles import Alignment
+
+        # Determine paths
+        if channel_folder:
+            source_json = channel_folder / "results.json"
+            output_excel = channel_folder / "results_clean.xlsx"
+        else:
+            source_json = json_path or JSON_PATH
+            output_excel = DATA_DIR / "results_clean.xlsx"
+
+        if not source_json.exists():
+            return None
+
+        try:
+            # Load JSON data
+            with open(source_json, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+
+            if not data:
+                return None
+
+            # Clean and format data
+            cleaned_data = []
+            for item in data:
+                cleaned_data.append({
+                    'Video ID': item['video_id'],
+                    'Platform': item['platform'].upper(),
+                    'URL': item['url'],
+                    'Overlay Text': self.clean_text(item['overlay_text']),
+                    'Speech Transcript': item['speech_text'] or '(No speech detected)',
+                    'Captions': item['captions'] or '(None)',
+                    'Hashtags': item['hashtags'] or '(None)',
+                    'Date Processed': item['timestamp'].split('T')[0]
+                })
+
+            # Create DataFrame
+            df = pd.DataFrame(cleaned_data)
+
+            # Export to Excel with formatting
+            with pd.ExcelWriter(output_excel, engine='openpyxl') as writer:
+                df.to_excel(writer, index=False, sheet_name='Video Extractions')
+
+                # Get worksheet
+                worksheet = writer.sheets['Video Extractions']
+
+                # Set column widths
+                worksheet.column_dimensions['A'].width = 15  # Video ID
+                worksheet.column_dimensions['B'].width = 12  # Platform
+                worksheet.column_dimensions['C'].width = 50  # URL
+                worksheet.column_dimensions['D'].width = 60  # Overlay Text
+                worksheet.column_dimensions['E'].width = 60  # Speech
+                worksheet.column_dimensions['F'].width = 40  # Captions
+                worksheet.column_dimensions['G'].width = 30  # Hashtags
+                worksheet.column_dimensions['H'].width = 15  # Date
+
+                # Enable text wrapping
+                for row in worksheet.iter_rows():
+                    for cell in row:
+                        cell.alignment = Alignment(wrap_text=True, vertical='top')
+
+            return str(output_excel)
+
+        except ImportError:
+            # pandas/openpyxl not installed
+            return None
+        except Exception as e:
+            print(f"Excel generation error: {e}")
+            return None

@@ -166,6 +166,21 @@ class Dashboard:
 
             self.log(f"✅ Processing complete: {success_count} succeeded, {failed_count} failed")
             self.progress_var.set(0)
+
+            # Auto-generate Excel report
+            if success_count > 0:
+                self.log("📊 Generating Excel report...")
+                try:
+                    excel_path = self.processor.exporter.generate_excel_report(
+                        channel_folder=self.processor.current_channel_folder
+                    )
+                    if excel_path:
+                        self.log(f"✅ Excel report created: {excel_path}")
+                    else:
+                        self.log("⚠️  Excel report not generated (pandas/openpyxl may not be installed)")
+                except Exception as e:
+                    self.log(f"⚠️  Excel generation failed: {str(e)}")
+
         except Exception as e:
             self.log(f"❌ Fatal error: {str(e)}")
         finally:
@@ -233,6 +248,18 @@ class Dashboard:
             self.log(f"✅ Processing complete: {success_count} succeeded, {failed_count} failed")
             self.progress_var.set(0)
 
+            # Auto-generate Excel report for local folder processing
+            if success_count > 0:
+                self.log("📊 Generating Excel report...")
+                try:
+                    excel_path = self.processor.exporter.generate_excel_report()
+                    if excel_path:
+                        self.log(f"✅ Excel report created: {excel_path}")
+                    else:
+                        self.log("⚠️  Excel report not generated (pandas/openpyxl may not be installed)")
+                except Exception as e:
+                    self.log(f"⚠️  Excel generation failed: {str(e)}")
+
         except Exception as e:
             self.log(f"❌ Fatal error: {str(e)}")
         finally:
@@ -241,8 +268,22 @@ class Dashboard:
             self.stop_btn.config(state=tk.DISABLED)
 
     def export_data(self):
-        messagebox.showinfo("Export", "Data exported to results.csv and results.json")
-        self.log("✅ Data exported")
+        """Manually trigger Excel report generation"""
+        self.log("📊 Generating Excel report...")
+        try:
+            excel_path = self.processor.exporter.generate_excel_report()
+            if excel_path:
+                self.log(f"✅ Excel report created: {excel_path}")
+                messagebox.showinfo("Export Complete", f"Excel report created:\n{excel_path}")
+            else:
+                self.log("⚠️  Excel report not generated")
+                messagebox.showwarning("Export Failed",
+                    "Could not generate Excel report.\n\n"
+                    "Make sure pandas and openpyxl are installed:\n"
+                    "pip install pandas openpyxl")
+        except Exception as e:
+            self.log(f"❌ Excel generation failed: {str(e)}")
+            messagebox.showerror("Export Error", f"Failed to generate Excel report:\n{str(e)}")
 
     def check_instagram_auth(self):
         """Check if Instagram session exists"""
