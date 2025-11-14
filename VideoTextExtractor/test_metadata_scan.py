@@ -5,19 +5,46 @@ from core.metadata_scanner import MetadataScanner
 from datetime import datetime
 import sys
 
-def test_tiktok_scan():
-    """Test TikTok metadata scanning"""
+def detect_platform(url):
+    """Auto-detect platform from URL"""
+    url_lower = url.lower()
+    if 'youtube.com' in url_lower or 'youtu.be' in url_lower:
+        return 'youtube'
+    elif 'tiktok.com' in url_lower:
+        return 'tiktok'
+    elif 'instagram.com' in url_lower:
+        return 'instagram'
+    elif 'facebook.com' in url_lower or 'fb.com' in url_lower:
+        return 'facebook'
+    else:
+        return None
+
+def test_metadata_scan():
+    """Test metadata scanning for any platform"""
     print("=" * 60)
-    print("Testing TikTok Metadata Scan")
+    print("Metadata Scanner - Command Line Test")
     print("=" * 60)
 
-    # Get URL from command line or use default
+    # Get URL from command line
     if len(sys.argv) > 1:
         url = sys.argv[1]
     else:
-        print("Usage: python test_metadata_scan.py <tiktok_profile_url>")
-        print("Example: python test_metadata_scan.py https://tiktok.com/@username")
+        print("Usage: python test_metadata_scan.py <url>")
+        print("\nExamples:")
+        print("  python test_metadata_scan.py https://youtube.com/@channelname")
+        print("  python test_metadata_scan.py https://tiktok.com/@username")
+        print("  python test_metadata_scan.py https://instagram.com/username")
+        print("  python test_metadata_scan.py https://facebook.com/pagename")
         return
+
+    # Detect platform
+    platform = detect_platform(url)
+    if not platform:
+        print(f"❌ Could not detect platform from URL: {url}")
+        print("Supported: YouTube, TikTok, Instagram, Facebook")
+        return
+
+    print(f"Platform detected: {platform.upper()}")
 
     scanner = MetadataScanner()
 
@@ -27,11 +54,34 @@ def test_tiktok_scan():
     try:
         progress_log(f"Starting scan for: {url}")
 
-        result = scanner.scan_tiktok_profile(
-            url,
-            max_videos=10,  # Limit to 10 for testing
-            progress_callback=progress_log
-        )
+        # Call appropriate scanner based on platform
+        if platform == 'youtube':
+            result = scanner.scan_youtube_channel(
+                url,
+                filter_shorts=False,
+                max_videos=None,  # Get ALL videos
+                progress_callback=progress_log
+            )
+        elif platform == 'tiktok':
+            result = scanner.scan_tiktok_profile(
+                url,
+                max_videos=None,  # Get ALL videos
+                progress_callback=progress_log
+            )
+        elif platform == 'instagram':
+            progress_log("⚠️  Instagram: Max 50 videos (rate limit protection)")
+            result = scanner.scan_instagram_profile(
+                url,
+                max_videos=50,  # Instagram limit
+                progress_callback=progress_log
+            )
+        elif platform == 'facebook':
+            progress_log("⚠️  Facebook: Public pages only, may be unreliable")
+            result = scanner.scan_facebook_page(
+                url,
+                max_videos=None,  # Get ALL videos
+                progress_callback=progress_log
+            )
 
         channel_name = result.get('channel_name', 'Unknown')
         videos = result.get('videos', [])
@@ -73,4 +123,4 @@ def test_tiktok_scan():
         traceback.print_exc()
 
 if __name__ == "__main__":
-    test_tiktok_scan()
+    test_metadata_scan()
