@@ -4,12 +4,14 @@ from pathlib import Path
 import pandas as pd
 from openpyxl.styles import Alignment
 import time
+import sys
 
 class MetadataScanner:
     """Fast metadata extraction using yt-dlp flat-playlist mode"""
 
     def __init__(self):
-        self.yt_dlp = "yt-dlp"  # Assumes yt-dlp is in PATH
+        # Use Python module mode to avoid launcher issues on Windows
+        self.yt_dlp = [sys.executable, "-m", "yt_dlp"]
         self.instagram_scraper = None
         self.facebook_scraper = None
 
@@ -19,7 +21,7 @@ class MetadataScanner:
 
     def get_playlist_entries(self, url):
         """Get all entries from playlist/channel without downloading"""
-        cmd = [self.yt_dlp, "--no-warnings", "--flat-playlist", "--dump-json", url]
+        cmd = self.yt_dlp + ["--no-warnings", "--flat-playlist", "--dump-json", url]
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
         entries = []
         for line in proc.stdout:
@@ -32,7 +34,7 @@ class MetadataScanner:
 
     def get_video_info(self, url):
         """Fetch full metadata for a single video"""
-        cmd = [self.yt_dlp, "--no-warnings", "--skip-download", "--dump-json", url]
+        cmd = self.yt_dlp + ["--no-warnings", "--skip-download", "--dump-json", url]
         result = self.run_cmd(cmd)
         if result.returncode != 0:
             return {}
