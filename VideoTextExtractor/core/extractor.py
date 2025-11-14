@@ -190,6 +190,39 @@ class MediaExtractor:
 
         return '. '.join(clean_sentences) if clean_sentences else ""
 
+    def format_numbered_list(self, text):
+        """Format numbered lists properly with line breaks"""
+        if not text:
+            return text
+
+        # Pattern to match numbers followed by period or standalone (1. or 1 )
+        # This will match: "1.", "1 ", "2.", "2 ", etc.
+        pattern = r'\s*(\d+)\.?\s+'
+
+        # Split text by numbered patterns
+        parts = re.split(pattern, text)
+
+        if len(parts) <= 2:
+            # No numbered list detected, return as-is
+            return text
+
+        formatted_lines = []
+        current_number = None
+
+        for i, part in enumerate(parts):
+            if i == 0 and part.strip():
+                # Text before first number (title or header)
+                formatted_lines.append(part.strip())
+            elif part.strip().isdigit():
+                # This is a number
+                current_number = part.strip()
+            elif current_number and part.strip():
+                # This is the text following a number
+                formatted_lines.append(f"{current_number}. {part.strip()}")
+                current_number = None
+
+        return '\n'.join(formatted_lines) if formatted_lines else text
+
     def normalize_for_comparison(self, text):
         """Strip text down to just words for similarity comparison"""
         # Remove all non-alphabetic characters
@@ -273,8 +306,13 @@ class MediaExtractor:
                     # EasyOCR returns list of (bbox, text, confidence)
                     results = self.ocr_reader.readtext(str(frame_path))
 
-                    # Combine all detected text
-                    raw_text = ' '.join([detection[1] for detection in results])
+                    # Sort results by Y-coordinate (top to bottom) for proper reading order
+                    # bbox format: [[top-left, top-right, bottom-right, bottom-left], text, confidence]
+                    # Sort by top-left Y coordinate (bbox[0][0][1])
+                    sorted_results = sorted(results, key=lambda x: x[0][0][1])
+
+                    # Combine all detected text in proper order
+                    raw_text = ' '.join([detection[1] for detection in sorted_results])
                     cleaned_text = self.clean_ocr_text(raw_text)
 
                     # Filter sentences to remove garbage
@@ -298,8 +336,10 @@ class MediaExtractor:
             if unique_texts:
                 # Sort by length descending - longest is usually cleanest
                 unique_texts.sort(key=len, reverse=True)
-                # Return the longest (cleanest) version
+                # Get the longest (cleanest) version
                 result = unique_texts[0]
+                # Format numbered lists with proper line breaks
+                result = self.format_numbered_list(result)
             else:
                 result = ""
 
