@@ -464,25 +464,55 @@ class Dashboard:
         username_entry.focus()
 
     def metadata_scan(self):
-        """Fast metadata scan of YouTube/TikTok channels"""
+        """Fast metadata scan of channels/profiles"""
         url_input = self.input_text.get().strip()
         if not url_input:
-            messagebox.showwarning("Input Required", "Please enter a channel/playlist URL")
+            messagebox.showwarning("Input Required", "Please enter a channel/playlist/profile URL")
             return
 
         platform = self.platform_var.get()
 
-        # Only YouTube and TikTok support metadata scanning
-        if platform not in ['youtube', 'tiktok']:
-            messagebox.showinfo(
-                "Metadata Scan",
-                f"Metadata scan is currently supported for:\n"
-                f"• YouTube channels/playlists\n"
-                f"• TikTok profiles\n\n"
-                f"Selected platform: {platform}\n\n"
-                f"For other platforms, use regular processing."
+        # Platform-specific warnings
+        if platform == 'instagram':
+            # Check if logged in
+            from pathlib import Path
+            session_file = Path(__file__).parent.parent / "data" / "ig_session"
+            if not session_file.exists():
+                messagebox.showwarning(
+                    "Instagram Login Required",
+                    "Instagram metadata scan requires authentication.\n\n"
+                    "Please click the 'Login' button first to authenticate."
+                )
+                return
+
+            # Warn about rate limits
+            response = messagebox.askyesno(
+                "Instagram Rate Limits",
+                "⚠️  Instagram metadata scan has limitations:\n\n"
+                "• Rate limited (pauses every 10 posts)\n"
+                "• Max 50 videos per scan\n"
+                "• May take several minutes\n"
+                "• Risk of temporary blocks if overused\n\n"
+                "Continue with scan?",
+                icon='warning'
             )
-            return
+            if not response:
+                return
+
+        elif platform == 'facebook':
+            # Warn about Facebook limitations
+            response = messagebox.askyesno(
+                "Facebook Scan Limitations",
+                "⚠️  Facebook metadata scan has limitations:\n\n"
+                "• Only works for public pages\n"
+                "• May fail for private or restricted content\n"
+                "• Less reliable than other platforms\n\n"
+                "For best results, process individual video URLs instead.\n\n"
+                "Try Facebook scan anyway?",
+                icon='warning'
+            )
+            if not response:
+                return
 
         # Ask for output location
         output_dir = filedialog.askdirectory(
@@ -537,6 +567,18 @@ class Dashboard:
                         )
                     elif platform == 'tiktok':
                         result = scanner.scan_tiktok_profile(
+                            url,
+                            max_videos=None,
+                            progress_callback=self.log
+                        )
+                    elif platform == 'instagram':
+                        result = scanner.scan_instagram_profile(
+                            url,
+                            max_videos=50,  # Instagram limit
+                            progress_callback=self.log
+                        )
+                    elif platform == 'facebook':
+                        result = scanner.scan_facebook_page(
                             url,
                             max_videos=None,
                             progress_callback=self.log

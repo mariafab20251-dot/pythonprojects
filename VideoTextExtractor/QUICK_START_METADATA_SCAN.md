@@ -84,12 +84,12 @@ urls_20250114_143022.txt
 
 ## 📊 Supported Platforms
 
-| Platform | Metadata Scan | Notes |
-|----------|---------------|-------|
-| YouTube  | ✅ Yes        | Channels, playlists |
-| TikTok   | ✅ Yes        | User profiles |
-| Instagram| ❌ No         | Use regular processing |
-| Facebook | ❌ No         | Use regular processing |
+| Platform | Metadata Scan | Auth Required | Notes |
+|----------|---------------|---------------|-------|
+| YouTube  | ✅ Yes        | No            | Channels, playlists - fast & unlimited |
+| TikTok   | ✅ Yes        | No            | User profiles - fast & reliable |
+| Instagram| ✅ Yes        | **Yes**       | Login required, max 50 videos, rate limited, includes likes/views |
+| Facebook | ⚠️ Limited    | No (public)   | Public pages only, unreliable, better to use individual URLs |
 
 ## 🎬 Complete Workflow Example
 
@@ -191,6 +191,12 @@ A: You choose the folder. Recommended: `/channels/platform/channelname/`
 
 **Q: Can I scan private playlists?**
 A: Only if your yt-dlp is configured with authentication for that platform.
+
+**Q: Does Instagram scanning work?**
+A: Yes, but requires login. Click "Login" button first. Max 50 videos, rate limited, slower than other platforms.
+
+**Q: What about Facebook?**
+A: Facebook scanning is unreliable and only works for fully public pages. Better to process individual video URLs.
 
 ## 🔗 See Also
 

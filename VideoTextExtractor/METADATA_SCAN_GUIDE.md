@@ -77,14 +77,35 @@ The scan creates two files:
 - Playlists: `youtube.com/playlist?list=...`
 - User channels: `youtube.com/c/username`
 - Channel IDs: `youtube.com/channel/UC...`
+- **Speed**: Very fast, no limits
+- **Auth Required**: No
 
 ### ✅ TikTok
 - User profiles: `tiktok.com/@username`
+- **Speed**: Fast, reliable
+- **Auth Required**: No
 
-### ⚠️ Instagram & Facebook
-- Metadata scan not currently supported
-- Use regular processing instead
-- Reason: Rate limiting and authentication requirements
+### ⚠️ Instagram
+- User profiles: `instagram.com/username`
+- **Speed**: Slower (rate limiting)
+- **Auth Required**: **YES** - Must login first
+- **Limitations**:
+  - Max 50 videos per scan
+  - Rate limited (2s pause every 10 posts)
+  - Risk of temporary blocks if overused
+  - Includes extra data: hashtags, likes, views
+- **Best Practice**: Use for small profiles or when you need engagement data
+
+### ⚠️ Facebook
+- Public pages: `facebook.com/pagename`
+- **Speed**: Variable, less reliable
+- **Auth Required**: No (for public pages)
+- **Limitations**:
+  - Only works for public pages/groups
+  - May fail for private or restricted content
+  - Less reliable than other platforms
+  - May require cookies for some pages
+- **Best Practice**: Process individual video URLs instead when possible
 
 ## 🎬 Example Workflows
 
@@ -128,6 +149,46 @@ The scan creates two files:
 4. Copy filtered URLs to new TXT file
 5. Load TXT file → Process only shorts
 ```
+
+### Workflow 4: Instagram Profile Analysis
+
+**Goal**: Extract metadata from Instagram profile with engagement data
+
+```
+1. Platform: Instagram
+2. Click "Login" → Enter credentials
+3. Input: https://instagram.com/businessaccount
+4. Click "Metadata Scan"
+5. Confirm rate limit warning
+6. Wait ~5 minutes (pauses every 10 posts)
+7. Result: Excel with 50 videos + hashtags, likes, views
+8. Review engagement data to identify top-performing content
+9. Load high-engagement URLs → Full processing
+```
+
+**Note**: Instagram scan includes extra columns not available for other platforms:
+- Hashtags extracted from captions
+- Like counts
+- View counts
+
+### Workflow 5: Facebook Public Page
+
+**Goal**: Scan public Facebook page (best effort)
+
+```
+1. Platform: Facebook
+2. Input: https://facebook.com/publicpage
+3. Click "Metadata Scan"
+4. Confirm limitation warning
+5. Wait for scan (may succeed or fail)
+6. If successful: Excel with public videos
+7. If failed: Process individual video URLs instead
+```
+
+**Important**: Facebook scanning is unreliable. For best results:
+- Only use with fully public pages
+- Have low expectations
+- Be prepared to fall back to individual URL processing
 
 ## 💡 Tips
 
@@ -219,22 +280,47 @@ VideoTextExtractor/
 ## ❓ FAQ
 
 **Q: Can I scan Instagram profiles?**
-A: Not yet. Instagram has strict rate limiting. Use regular profile scraping instead.
+A: Yes! But you must login first. Instagram scans are rate-limited and max out at 50 videos per scan. Best for small profiles or when you need engagement data (likes, views, hashtags).
 
 **Q: How many videos can I scan at once?**
-A: No hard limit. Tested with 1000+ videos successfully. Depends on platform.
+A: Depends on platform:
+- YouTube/TikTok: No hard limit, tested with 1000+ videos
+- Instagram: Max 50 videos (rate limit protection)
+- Facebook: No hard limit, but may fail for various reasons
 
 **Q: Does scanning use my Instagram login?**
-A: No. Metadata scan only works for YouTube and TikTok (no auth needed).
+A: Yes, Instagram requires authentication. YouTube, TikTok, and Facebook (public pages) don't need login.
 
 **Q: Can I filter videos during scan?**
-A: Not during scan, but you can filter the Excel afterward by duration, title, etc.
+A: Not during scan, but you can filter the Excel afterward by duration, title, likes, etc. Instagram scans include engagement metrics for advanced filtering.
+
+**Q: What if Instagram scanning fails with rate limit error?**
+A: Wait 10-15 minutes and try again. Instagram is very protective. Consider:
+- Processing individual URLs instead of scanning entire profile
+- Scanning smaller batches
+- Using the regular profile scraper with individual URL processing
+
+**Q: Why does Facebook scanning fail?**
+A: Facebook has strict access controls. Common reasons:
+- Page is private or restricted
+- Facebook is blocking automated access
+- Authentication/cookies required
+- Page has no videos
+
+For Facebook, it's often better to process individual video URLs instead of scanning.
 
 **Q: What if scanning fails?**
-A: Check your internet connection and ensure the URL is a valid channel/playlist URL.
+A: Check your internet connection and ensure:
+- URL is valid channel/playlist/profile URL
+- For Instagram: You're logged in
+- For Facebook: Page is fully public
+- Platform is correctly selected
 
 **Q: Can I resume a stopped scan?**
-A: No. Scans start from beginning. But they're fast enough that restarting isn't an issue.
+A: No. Scans start from beginning. YouTube/TikTok scans are fast enough that restarting isn't an issue. Instagram scans may take longer but are limited to 50 videos anyway.
+
+**Q: What's the difference between Instagram scan and regular Instagram processing?**
+A: Metadata scan extracts ALL video URLs at once with engagement data, then you can selectively process. Regular processing downloads and extracts from individual URLs. Scan first for bulk operations, direct processing for specific videos.
 
 ## 🔗 Related Features
 
