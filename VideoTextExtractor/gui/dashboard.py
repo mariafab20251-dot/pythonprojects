@@ -12,6 +12,7 @@ class Dashboard:
         self.stop_processing = False
 
         self.create_widgets()
+        self.check_instagram_auth()
 
     def create_widgets(self):
         # Platform selection
@@ -25,9 +26,13 @@ class Dashboard:
                                        state="readonly", width=15)
         platform_combo.grid(row=0, column=1, padx=5)
 
-        tk.Label(frame_top, text="Auth:").grid(row=0, column=2, padx=(20,5))
-        self.auth_label = tk.Label(frame_top, text="✅", fg="green")
+        tk.Label(frame_top, text="Instagram Auth:").grid(row=0, column=2, padx=(20,5))
+        self.auth_label = tk.Label(frame_top, text="❌ Not logged in", fg="red")
         self.auth_label.grid(row=0, column=3)
+
+        self.login_btn = tk.Button(frame_top, text="Login", command=self.show_instagram_login,
+                                    bg="#9C27B0", fg="white", width=8)
+        self.login_btn.grid(row=0, column=4, padx=5)
 
         # Input field
         frame_input = tk.Frame(self.root, padx=10, pady=5)
@@ -238,3 +243,92 @@ class Dashboard:
     def export_data(self):
         messagebox.showinfo("Export", "Data exported to results.csv and results.json")
         self.log("✅ Data exported")
+
+    def check_instagram_auth(self):
+        """Check if Instagram session exists"""
+        from pathlib import Path
+        session_file = Path(__file__).parent.parent / "data" / "ig_session"
+        cookies_file = Path(__file__).parent.parent / "data" / "cookies.txt"
+
+        if session_file.exists():
+            self.auth_label.config(text="✅ Logged in (session)", fg="green")
+            self.log("Instagram: Authenticated (session found)")
+        elif cookies_file.exists():
+            self.auth_label.config(text="✅ Auth (cookies.txt)", fg="green")
+            self.log("Instagram: Authenticated (cookies.txt found)")
+        else:
+            self.auth_label.config(text="❌ Not logged in", fg="red")
+
+    def show_instagram_login(self):
+        """Show Instagram login dialog"""
+        login_window = tk.Toplevel(self.root)
+        login_window.title("Instagram Login")
+        login_window.geometry("400x250")
+        login_window.resizable(False, False)
+
+        # Center the window
+        login_window.transient(self.root)
+        login_window.grab_set()
+
+        # Header
+        header = tk.Label(login_window, text="Instagram Authentication",
+                         font=("Arial", 14, "bold"), pady=10)
+        header.pack()
+
+        info = tk.Label(login_window, text="Login to enable profile scraping",
+                       fg="gray")
+        info.pack()
+
+        # Form frame
+        form_frame = tk.Frame(login_window, padx=20, pady=20)
+        form_frame.pack()
+
+        tk.Label(form_frame, text="Username:").grid(row=0, column=0, sticky=tk.W, pady=5)
+        username_entry = tk.Entry(form_frame, width=30)
+        username_entry.grid(row=0, column=1, pady=5)
+
+        tk.Label(form_frame, text="Password:").grid(row=1, column=0, sticky=tk.W, pady=5)
+        password_entry = tk.Entry(form_frame, width=30, show="*")
+        password_entry.grid(row=1, column=1, pady=5)
+
+        # Status label
+        status_label = tk.Label(login_window, text="", fg="red")
+        status_label.pack(pady=5)
+
+        # Buttons
+        button_frame = tk.Frame(login_window)
+        button_frame.pack(pady=10)
+
+        def do_login():
+            username = username_entry.get().strip()
+            password = password_entry.get().strip()
+
+            if not username or not password:
+                status_label.config(text="Please enter both username and password", fg="red")
+                return
+
+            status_label.config(text="Logging in...", fg="blue")
+            login_window.update()
+
+            try:
+                scraper = self.processor.scrapers['instagram']
+                scraper.login(username, password)
+
+                status_label.config(text="✅ Login successful!", fg="green")
+                self.auth_label.config(text="✅ Logged in (session)", fg="green")
+                self.log("✅ Instagram login successful")
+
+                login_window.after(1000, login_window.destroy)
+            except Exception as e:
+                status_label.config(text=f"Login failed: {str(e)}", fg="red")
+                self.log(f"❌ Instagram login failed: {str(e)}")
+
+        login_btn = tk.Button(button_frame, text="Login", command=do_login,
+                             bg="#4CAF50", fg="white", width=12)
+        login_btn.pack(side=tk.LEFT, padx=5)
+
+        cancel_btn = tk.Button(button_frame, text="Cancel", command=login_window.destroy,
+                              bg="#f44336", fg="white", width=12)
+        cancel_btn.pack(side=tk.LEFT, padx=5)
+
+        username_entry.focus()
