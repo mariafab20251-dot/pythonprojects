@@ -1,0 +1,226 @@
+import os
+import threading
+import subprocess
+import pandas as pd
+from flask import Flask, request, jsonify, send_file, render_template
+
+app = Flask(__name__, template_folder=".")
+
+# Global progress tracker
+task_status = {
+    "status": "idle",
+    "progress": 0,
+    "total": 0,
+    "file": None,
+    "current_channel": ""
+}
+
+# Paths
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DIRS = {
+    "youtube": os.path.join(BASE_DIR, "youtube_results"),
+    "tiktok": os.path.join(BASE_DIR, "tiktok_results"),
+    "downloads": os.path.join(BASE_DIR, "downloads")
+}
+for d in DIRS.values():
+    os.makedirs(d, exist_ok=True)
+
+YT_DLP = os.path.join(BASE_DIR, "yt-dlp.exe")  # local yt-dlp exe
+
+# ------------------- HELPERS -------------------
+
+def sanitize_sheet_name(name):
+    return "".join(c if c.isalnum() else "_" for c in name)[:30]
+
+def run_cmd(cmd):
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+def get_playlist_entries(url):
+    cmd = [YT_DLP, "--no-warnings", "--flat-playlist", "--dump-json", url]
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
+    entries = []
+    for line in proc.stdout:
+        try:
+            import json
+            entries.append(json.loads(line))
+        except Exception:
+            continue
+    proc.wait()
+    return entries
+
+def get_video_info(url):
+    """Fetch full metadata for a single video"""
+    cmd = [YT_DLP, "--no-warnings", "--skip-download", "--dump-json", url]
+    r = run_cmd(cmd)
+    if r.returncode != 0:
+        return {}
+    import json
+    return json.loads(r.stdout)
+
+def save_to_excel(out_file, sheet_name, df):
+    if os.path.exists(out_file):
+        with pd.ExcelWriter(out_file, engine="openpyxl", mode="a", if_sheet_exists="replace") as writer:
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+    else:
+        with pd.ExcelWriter(out_file, engine="openpyxl") as writer:
+            df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+# ------------------- PLATFORM TASKS -------------------
+
+def fetch_youtube(channel_url, mode):
+    entries = get_playlist_entries(channel_url)
+    total = len(entries)
+    rows = []
+    channel_name = None
+    task_status.update({"total": total, "progress": 0, "current_channel": ""})
+
+    for i, e in enumerate(entries, start=1):
+        vid_id = e.get("id")
+        title = e.get("title", "")
+        url = f"https://www.youtube.com/watch?v={vid_id}"
+        if not channel_name:
+            channel_name = e.get("channel") or "YouTube"
+            task_status["current_channel"] = sanitize_sheet_name(channel_name)
+
+        info = get_video_info(url)
+        duration = info.get("duration", "")
+        uploader = info.get("uploader", "")
+        caption = info.get("description", "")
+
+        # Filter shorts if needed (<180s)
+        if mode == "shorts" and duration and duration > 180:
+            continue
+
+        rows.append({
+            "video_id": vid_id,
+            "title": title,
+            "username": uploader,
+            "caption": caption,
+            "url": url,
+            "duration": duration
+        })
+
+        task_status["progress"] = int((i / total) * 100 if total else 0)
+
+    if not channel_name:
+        channel_name = "YouTube"
+
+    sheet_name = sanitize_sheet_name(channel_name)
+    df = pd.DataFrame(rows, columns=["video_id", "title", "username", "caption", "url", "duration"])
+
+    # Save into separate files depending on mode
+    if mode == "shorts":
+        out_file = os.path.join(DIRS["youtube"], "youtube_shorts.xlsx")
+    else:
+        out_file = os.path.join(DIRS["youtube"], "youtube_videos.xlsx")
+
+    save_to_excel(out_file, sheet_name, df)
+    return out_file
+
+def fetch_tiktok(profile_url):
+    entries = get_playlist_entries(profile_url)
+    total = len(entries)
+    rows = []
+    profile_name = None
+    task_status.update({"total": total, "progress": 0, "current_channel": ""})
+
+    username = profile_url.split("@")[-1].strip("/")
+
+    for i, e in enumerate(entries, start=1):
+        vid_id = e.get("id") or e.get("url")
+        title = e.get("title", "")
+        if not vid_id:
+            continue
+
+        video_url = e.get("url") or f"https://www.tiktok.com/@{username}/video/{vid_id}"
+
+        if profile_name is None:
+            profile_name = username
+            task_status["current_channel"] = sanitize_sheet_name(profile_name)
+
+        duration = e.get("duration", "")
+        caption = e.get("description") or e.get("title", "")
+
+        rows.append({
+            "video_id": vid_id,
+            "title": title,
+            "username": username,
+            "caption": caption,
+            "url": video_url,
+            "duration": duration
+        })
+
+        task_status["progress"] = int((i / total) * 100 if total else 0)
+
+    sheet_name = sanitize_sheet_name(profile_name or "TikTok")
+    df = pd.DataFrame(rows, columns=["video_id", "title", "username", "caption", "url", "duration"])
+    out_file = os.path.join(DIRS["tiktok"], "tiktok_videos.xlsx")
+    save_to_excel(out_file, sheet_name, df)
+    return out_file
+
+def download_any_video(urls, resolution):
+    if isinstance(urls, str):
+        urls = [u.strip() for u in urls.splitlines() if u.strip()]
+    files = []
+    total = len(urls)
+    task_status.update({"total": total, "progress": 0, "current_channel": ""})
+
+    for i, u in enumerate(urls, start=1):
+        out_tpl = os.path.join(DIRS["downloads"], "%(title).80s.%(ext)s")
+        cmd = [
+            YT_DLP, "-f", f"bestvideo[height<={resolution}]+bestaudio/best[height<={resolution}]",
+            "-o", out_tpl, u
+        ]
+        r = run_cmd(cmd)
+        if r.returncode == 0:
+            files.append(out_tpl)
+        task_status["progress"] = int((i / total) * 100 if total else 0)
+
+    return files
+
+# ------------------- FLASK ROUTES -------------------
+
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+@app.route("/ping")
+def ping():
+    return "ok"
+
+@app.route("/start", methods=["POST"])
+def start():
+    platform = request.form.get("platform")
+    url = request.form.get("url")
+    mode = request.form.get("mode", "all")
+    resolution = request.form.get("resolution", "best")
+
+    def task():
+        try:
+            task_status["status"] = "running"
+            if platform == "youtube":
+                task_status["file"] = fetch_youtube(url, mode)
+            elif platform == "tiktok":
+                task_status["file"] = fetch_tiktok(url)
+            elif platform == "anyvideo":
+                task_status["file"] = download_any_video(url, resolution)
+            task_status["status"] = "done"
+        except Exception as e:
+            task_status["status"] = f"error: {str(e)}"
+
+    threading.Thread(target=task).start()
+    return "started"
+
+@app.route("/progress")
+def progress():
+    return jsonify(task_status)
+
+@app.route("/download")
+def download():
+    f = task_status.get("file")
+    if isinstance(f, list):
+        return jsonify({"files": f})
+    return send_file(f, as_attachment=True)
+
+if __name__ == "__main__":
+    app.run(debug=True, host="0.0.0.0", port=5000)
