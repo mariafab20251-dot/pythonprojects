@@ -475,7 +475,6 @@ class Dashboard:
         # Platform-specific warnings
         if platform == 'instagram':
             # Check if logged in
-            from pathlib import Path
             session_file = Path(__file__).parent.parent / "data" / "ig_session"
             if not session_file.exists():
                 messagebox.showwarning(
