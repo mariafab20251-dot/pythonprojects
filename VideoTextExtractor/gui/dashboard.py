@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
 from datetime import datetime
+from pathlib import Path
 
 class Dashboard:
     def __init__(self, root, processor):
@@ -87,6 +88,10 @@ class Dashboard:
         self.export_btn = tk.Button(frame_buttons, text="Export", command=self.export_data,
                                      bg="#2196F3", fg="white", width=10)
         self.export_btn.pack(side=tk.LEFT, padx=5)
+
+        self.metadata_scan_btn = tk.Button(frame_buttons, text="Metadata Scan", command=self.metadata_scan,
+                                           bg="#673AB7", fg="white", width=13)
+        self.metadata_scan_btn.pack(side=tk.LEFT, padx=5)
 
         # Progress bar
         frame_progress = tk.Frame(self.root, padx=10, pady=5)
@@ -457,3 +462,165 @@ class Dashboard:
         cancel_btn.pack(side=tk.LEFT, padx=5)
 
         username_entry.focus()
+
+    def metadata_scan(self):
+        """Fast metadata scan of YouTube/TikTok channels"""
+        url_input = self.input_text.get().strip()
+        if not url_input:
+            messagebox.showwarning("Input Required", "Please enter a channel/playlist URL")
+            return
+
+        platform = self.platform_var.get()
+
+        # Only YouTube and TikTok support metadata scanning
+        if platform not in ['youtube', 'tiktok']:
+            messagebox.showinfo(
+                "Metadata Scan",
+                f"Metadata scan is currently supported for:\n"
+                f"• YouTube channels/playlists\n"
+                f"• TikTok profiles\n\n"
+                f"Selected platform: {platform}\n\n"
+                f"For other platforms, use regular processing."
+            )
+            return
+
+        # Ask for output location
+        output_dir = filedialog.askdirectory(
+            title="Select folder to save metadata results",
+            initialdir=str(Path(__file__).parent.parent / "channels")
+        )
+
+        if not output_dir:
+            return
+
+        self.stop_processing = False
+        self.process_btn.config(state=tk.DISABLED)
+        self.browse_btn.config(state=tk.DISABLED)
+        self.metadata_scan_btn.config(state=tk.DISABLED)
+        self.stop_btn.config(state=tk.NORMAL)
+        self.log("🔍 Starting metadata scan...")
+
+        thread = threading.Thread(target=self._metadata_scan_thread,
+                                 args=(url_input, platform, output_dir))
+        thread.daemon = True
+        thread.start()
+
+    def _metadata_scan_thread(self, url_input, platform, output_dir):
+        """Background thread for metadata scanning"""
+        from core.metadata_scanner import MetadataScanner
+        from pathlib import Path
+        import os
+
+        try:
+            scanner = MetadataScanner()
+            output_path = Path(output_dir)
+
+            # Parse multiple URLs if comma-separated
+            urls = [u.strip() for u in url_input.split(',') if u.strip()]
+
+            all_results = []
+
+            for url in urls:
+                if self.stop_processing:
+                    self.log("❌ Metadata scan stopped by user")
+                    break
+
+                try:
+                    self.log(f"📡 Scanning: {url}")
+
+                    if platform == 'youtube':
+                        result = scanner.scan_youtube_channel(
+                            url,
+                            filter_shorts=False,
+                            max_videos=None,
+                            progress_callback=self.log
+                        )
+                    elif platform == 'tiktok':
+                        result = scanner.scan_tiktok_profile(
+                            url,
+                            max_videos=None,
+                            progress_callback=self.log
+                        )
+                    else:
+                        self.log(f"⚠️  Platform {platform} not supported for metadata scan")
+                        continue
+
+                    all_results.append(result)
+
+                    channel_name = result.get('channel_name', 'Unknown')
+                    video_count = len(result.get('videos', []))
+                    self.log(f"✅ Found {video_count} videos from {channel_name}")
+
+                except Exception as e:
+                    self.log(f"❌ Scan failed: {str(e)}")
+                    continue
+
+            if not all_results:
+                self.log("❌ No metadata extracted")
+                return
+
+            # Export to Excel
+            self.log("📊 Exporting to Excel...")
+            try:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                excel_file = output_path / f"metadata_scan_{timestamp}.xlsx"
+                scanner.export_to_excel(all_results, str(excel_file))
+                self.log(f"✅ Excel created: {excel_file.name}")
+            except Exception as e:
+                self.log(f"⚠️  Excel export failed: {str(e)}")
+
+            # Export URLs to TXT
+            self.log("📝 Exporting URLs to TXT...")
+            try:
+                txt_file = output_path / f"urls_{timestamp}.txt"
+                scanner.export_urls_to_txt(all_results, str(txt_file))
+                self.log(f"✅ URL list created: {txt_file.name}")
+                self.log(f"💡 You can now load {txt_file.name} using the 'Browse File' button!")
+            except Exception as e:
+                self.log(f"⚠️  TXT export failed: {str(e)}")
+
+            # Show summary
+            total_videos = sum(len(r.get('videos', [])) for r in all_results)
+            self.log(f"\n{'='*50}")
+            self.log(f"✅ Metadata scan complete!")
+            self.log(f"📊 Channels scanned: {len(all_results)}")
+            self.log(f"🎥 Total videos found: {total_videos}")
+            self.log(f"📁 Results saved to: {output_dir}")
+            self.log(f"{'='*50}")
+
+            # Ask user if they want to process the URLs now
+            def ask_process():
+                if messagebox.askyesno(
+                    "Scan Complete",
+                    f"Metadata scan complete!\n\n"
+                    f"✅ {len(all_results)} channel(s) scanned\n"
+                    f"🎥 {total_videos} video(s) found\n"
+                    f"📁 Files saved to: {output_path.name}\n\n"
+                    f"Do you want to load the URLs for full processing now?",
+                    parent=self.root
+                ):
+                    # Load the URLs into the input field
+                    try:
+                        txt_file = output_path / f"urls_{timestamp}.txt"
+                        with open(txt_file, 'r', encoding='utf-8') as f:
+                            urls = [line.strip() for line in f if line.strip()]
+
+                        self.input_text.delete(0, tk.END)
+                        self.input_text.insert(0, ', '.join(urls[:10]))  # Load first 10
+                        self.log(f"📥 Loaded {len(urls[:10])} URLs into input field (showing first 10)")
+
+                        if len(urls) > 10:
+                            self.log(f"💡 Tip: Use 'Browse File' to load all {len(urls)} URLs")
+                    except Exception as e:
+                        self.log(f"❌ Failed to load URLs: {str(e)}")
+
+            self.root.after(100, ask_process)
+
+        except Exception as e:
+            self.log(f"❌ Metadata scan error: {str(e)}")
+        finally:
+            self.process_btn.config(state=tk.NORMAL)
+            self.browse_btn.config(state=tk.NORMAL)
+            self.metadata_scan_btn.config(state=tk.NORMAL)
+            self.stop_btn.config(state=tk.DISABLED)
+            self.progress_var.set(0)
