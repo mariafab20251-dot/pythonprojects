@@ -26,6 +26,8 @@ class InstagramScraper:
         try:
             self.loader.login(username, password)
             self.loader.save_session_to_file(str(self.session_file))
+            # Reload session to ensure it's active
+            self._load_session()
             return True
         except Exception as e:
             raise Exception(f"Instagram login failed: {str(e)}")
@@ -70,8 +72,48 @@ class InstagramScraper:
             return video_id, "", ""
 
     def get_all_videos_from_profile(self, username):
-        raise NotImplementedError(
-            "Instagram profile scraping requires authentication.\n"
-            "Please use direct video URLs instead.\n"
-            "See INSTAGRAM_AUTH.md for setup instructions."
-        )
+        """Get all video URLs from an Instagram profile"""
+        try:
+            # Check if logged in
+            if not self.loader.context.is_logged_in:
+                raise Exception(
+                    "Not logged in to Instagram.\n"
+                    "Click the 'Login' button to authenticate."
+                )
+
+            # Get profile
+            profile = instaloader.Profile.from_username(self.loader.context, username)
+
+            video_urls = []
+
+            # Iterate through posts
+            for post in profile.get_posts():
+                # Check if it's a video (reel, IGTV, or video post)
+                if post.is_video:
+                    # Construct URL
+                    if post.typename == 'GraphVideo':
+                        url = f"https://www.instagram.com/p/{post.shortcode}/"
+                    elif post.typename == 'GraphSidecar':
+                        # May contain videos in carousel
+                        url = f"https://www.instagram.com/p/{post.shortcode}/"
+                    else:
+                        url = f"https://www.instagram.com/reel/{post.shortcode}/"
+
+                    video_urls.append(url)
+
+            if not video_urls:
+                raise Exception(f"No videos found on profile @{username}")
+
+            return video_urls
+
+        except instaloader.exceptions.ProfileNotExistsException:
+            raise Exception(f"Instagram profile '@{username}' does not exist")
+        except instaloader.exceptions.LoginRequiredException:
+            raise Exception(
+                "Instagram login required.\n"
+                "Click the 'Login' button to authenticate."
+            )
+        except Exception as e:
+            if "Not logged in" in str(e) or "Login" in str(e):
+                raise
+            raise Exception(f"Failed to scrape Instagram profile: {str(e)}")
