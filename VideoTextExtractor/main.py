@@ -1,6 +1,7 @@
 import tkinter as tk
 import sys
 import os
+import re
 from pathlib import Path
 
 # Add project root to path
@@ -28,12 +29,81 @@ class VideoProcessor:
             'youtube': YouTubeScraper(),
             'facebook': FacebookScraper()
         }
+        self.current_channel_folder = None
+
+    def extract_channel_name(self, url_input, platform):
+        """Extract channel/profile name from URL"""
+        import re
+
+        if platform == 'youtube':
+            # youtube.com/@channelname or youtube.com/c/channelname
+            if 'youtube.com/@' in url_input:
+                match = re.search(r'youtube\.com/@([^/?]+)', url_input)
+                if match:
+                    return match.group(1)
+            elif 'youtube.com/c/' in url_input:
+                match = re.search(r'youtube\.com/c/([^/?]+)', url_input)
+                if match:
+                    return match.group(1)
+            elif 'youtube.com/channel/' in url_input:
+                match = re.search(r'youtube\.com/channel/([^/?]+)', url_input)
+                if match:
+                    return match.group(1)[:20]  # Limit channel ID length
+
+        elif platform == 'instagram':
+            if 'instagram.com' in url_input and '/reel/' not in url_input and '/p/' not in url_input:
+                username = url_input.split('/')[-1] or url_input.split('/')[-2]
+                return username
+
+        elif platform == 'facebook':
+            if 'facebook.com' in url_input:
+                match = re.search(r'facebook\.com/([^/?]+)', url_input)
+                if match:
+                    return match.group(1)
+
+        elif platform == 'tiktok':
+            if 'tiktok.com/@' in url_input:
+                match = re.search(r'tiktok\.com/@([^/?]+)', url_input)
+                if match:
+                    return match.group(1)
+
+        return None
+
+    def setup_channel_folder(self, channel_name, platform):
+        """Create folder structure for channel"""
+        from pathlib import Path
+        from config import BASE_DIR
+
+        if not channel_name:
+            return None
+
+        # Sanitize channel name for folder
+        safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', channel_name)
+        safe_name = safe_name[:50]  # Limit length
+
+        # Create channel folder
+        channel_folder = BASE_DIR / "channels" / platform / safe_name
+        channel_folder.mkdir(parents=True, exist_ok=True)
+
+        # Create subfolders
+        videos_folder = channel_folder / "videos"
+        reports_folder = channel_folder / "reports"
+        videos_folder.mkdir(exist_ok=True)
+        reports_folder.mkdir(exist_ok=True)
+
+        return channel_folder
 
     def parse_input(self, url_input, platform):
         if ',' in url_input:
+            self.current_channel_folder = None
             return [url.strip() for url in url_input.split(',')]
 
         scraper = self.scrapers[platform]
+
+        # Check if this is a channel/profile URL
+        channel_name = self.extract_channel_name(url_input, platform)
+        if channel_name:
+            self.current_channel_folder = self.setup_channel_folder(channel_name, platform)
 
         # Instagram profile
         if platform == 'instagram' and 'instagram.com' in url_input and '/reel/' not in url_input and '/p/' not in url_input:
@@ -44,6 +114,8 @@ class VideoProcessor:
         if platform == 'youtube' and ('youtube.com/channel/' in url_input or 'youtube.com/@' in url_input or 'youtube.com/c/' in url_input):
             return scraper.get_all_videos_from_channel(url_input)
 
+        # Single URL - no channel folder needed
+        self.current_channel_folder = None
         return [url_input]
 
     def process_video(self, url, platform, log_callback, force_reprocess=False):
@@ -60,7 +132,7 @@ class VideoProcessor:
                 raise Exception("Could not extract video ID")
 
             log_callback(f"📥 Downloading video {video_id}...")
-            downloader = VideoDownloader(platform)
+            downloader = VideoDownloader(platform, channel_folder=self.current_channel_folder)
             video_path = downloader.download(url, video_id)
 
             if not video_path or not os.path.exists(video_path):
@@ -92,11 +164,14 @@ class VideoProcessor:
             }
 
             self.db.add_video(video_id, platform, url, overlay_text, speech_text, captions, hashtags)
-            self.exporter.export_to_csv(data)
-            self.exporter.export_to_json(data)
-            self.exporter.export_to_txt(data)
+            self.exporter.export_to_csv(data, channel_folder=self.current_channel_folder)
+            self.exporter.export_to_json(data, channel_folder=self.current_channel_folder)
+            self.exporter.export_to_txt(data, channel_folder=self.current_channel_folder)
 
-            log_callback(f"✅ Completed: {video_id}")
+            if self.current_channel_folder:
+                log_callback(f"✅ Completed: {video_id} (saved to channel folder)")
+            else:
+                log_callback(f"✅ Completed: {video_id}")
 
         except Exception as e:
             log_callback(f"❌ Failed {url}: {str(e)}")

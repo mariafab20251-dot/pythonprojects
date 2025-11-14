@@ -9,6 +9,7 @@ class Dashboard:
         self.processor = processor
         self.root.title("Universal Video Text Extractor")
         self.root.geometry("800x600")
+        self.stop_processing = False
 
         self.create_widgets()
 
@@ -41,15 +42,23 @@ class Dashboard:
         frame_buttons.pack(fill=tk.X)
 
         self.process_btn = tk.Button(frame_buttons, text="Process URLs", command=self.process_input,
-                                      bg="#4CAF50", fg="white", width=15)
+                                      bg="#4CAF50", fg="white", width=12)
         self.process_btn.pack(side=tk.LEFT, padx=5)
 
         self.browse_btn = tk.Button(frame_buttons, text="Browse Folder", command=self.browse_folder,
-                                     bg="#FF9800", fg="white", width=15)
+                                     bg="#FF9800", fg="white", width=12)
         self.browse_btn.pack(side=tk.LEFT, padx=5)
 
+        self.stop_btn = tk.Button(frame_buttons, text="Stop", command=self.stop_process,
+                                  bg="#f44336", fg="white", width=10, state=tk.DISABLED)
+        self.stop_btn.pack(side=tk.LEFT, padx=5)
+
+        self.clear_log_btn = tk.Button(frame_buttons, text="Clear Log", command=self.clear_log,
+                                        bg="#9E9E9E", fg="white", width=10)
+        self.clear_log_btn.pack(side=tk.LEFT, padx=5)
+
         self.export_btn = tk.Button(frame_buttons, text="Export", command=self.export_data,
-                                     bg="#2196F3", fg="white", width=15)
+                                     bg="#2196F3", fg="white", width=10)
         self.export_btn.pack(side=tk.LEFT, padx=5)
 
         # Progress bar
@@ -76,6 +85,15 @@ class Dashboard:
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
 
+    def clear_log(self):
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.delete(1.0, tk.END)
+        self.log_text.config(state=tk.DISABLED)
+
+    def stop_process(self):
+        self.stop_processing = True
+        self.log("🛑 Stop requested - will stop after current video...")
+
     def process_input(self):
         url_input = self.input_text.get().strip()
         if not url_input:
@@ -84,7 +102,10 @@ class Dashboard:
 
         platform = self.platform_var.get()
 
+        self.stop_processing = False
         self.process_btn.config(state=tk.DISABLED)
+        self.browse_btn.config(state=tk.DISABLED)
+        self.stop_btn.config(state=tk.NORMAL)
         self.log("Starting processing...")
 
         thread = threading.Thread(target=self._process_thread, args=(url_input, platform))
@@ -102,6 +123,10 @@ class Dashboard:
             self.log(f"Found {total} video(s) to process")
 
             for idx, url in enumerate(urls, 1):
+                if self.stop_processing:
+                    self.log("❌ Processing stopped by user")
+                    break
+
                 self.log(f"Processing {idx}/{total}: {url}")
 
                 try:
@@ -140,6 +165,8 @@ class Dashboard:
             self.log(f"❌ Fatal error: {str(e)}")
         finally:
             self.process_btn.config(state=tk.NORMAL)
+            self.browse_btn.config(state=tk.NORMAL)
+            self.stop_btn.config(state=tk.DISABLED)
 
     def browse_folder(self):
         folder_path = filedialog.askdirectory(title="Select Folder with Downloaded Videos")
@@ -149,8 +176,10 @@ class Dashboard:
 
         self.log(f"📁 Selected folder: {folder_path}")
 
+        self.stop_processing = False
         self.process_btn.config(state=tk.DISABLED)
         self.browse_btn.config(state=tk.DISABLED)
+        self.stop_btn.config(state=tk.NORMAL)
 
         thread = threading.Thread(target=self._process_folder_thread, args=(folder_path,))
         thread.daemon = True
@@ -179,6 +208,10 @@ class Dashboard:
             self.log(f"Found {total} video file(s) to process")
 
             for idx, video_path in enumerate(video_files, 1):
+                if self.stop_processing:
+                    self.log("❌ Processing stopped by user")
+                    break
+
                 self.log(f"Processing {idx}/{total}: {video_path.name}")
 
                 try:
@@ -200,6 +233,7 @@ class Dashboard:
         finally:
             self.process_btn.config(state=tk.NORMAL)
             self.browse_btn.config(state=tk.NORMAL)
+            self.stop_btn.config(state=tk.DISABLED)
 
     def export_data(self):
         messagebox.showinfo("Export", "Data exported to results.csv and results.json")

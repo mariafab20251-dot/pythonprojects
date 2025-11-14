@@ -15,8 +15,17 @@ class DataExporter:
                 writer = csv.writer(f)
                 writer.writerow(['video_id', 'platform', 'url', 'overlay_text', 'speech_text', 'captions', 'hashtags', 'timestamp'])
 
-    def export_to_csv(self, data):
-        with open(CSV_PATH, 'a', newline='', encoding='utf-8') as f:
+    def export_to_csv(self, data, channel_folder=None):
+        csv_path = CSV_PATH
+        if channel_folder:
+            csv_path = channel_folder / "results.csv"
+            # Ensure CSV header for channel folder
+            if not csv_path.exists():
+                with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    writer.writerow(['video_id', 'platform', 'url', 'overlay_text', 'speech_text', 'captions', 'hashtags', 'timestamp'])
+
+        with open(csv_path, 'a', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow([
                 data['video_id'],
@@ -29,11 +38,15 @@ class DataExporter:
                 data['timestamp']
             ])
 
-    def export_to_json(self, data):
+    def export_to_json(self, data, channel_folder=None):
+        json_path = JSON_PATH
+        if channel_folder:
+            json_path = channel_folder / "results.json"
+
         existing_data = []
-        if JSON_PATH.exists():
+        if json_path.exists():
             try:
-                with open(JSON_PATH, 'r', encoding='utf-8') as f:
+                with open(json_path, 'r', encoding='utf-8') as f:
                     content = f.read().strip()
                     if content:  # Only parse if file has content
                         existing_data = json.loads(content)
@@ -43,7 +56,7 @@ class DataExporter:
 
         existing_data.append(data)
 
-        with open(JSON_PATH, 'w', encoding='utf-8') as f:
+        with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(existing_data, f, indent=2, ensure_ascii=False)
 
     def clean_text(self, text):
@@ -62,7 +75,7 @@ class DataExporter:
 
         return ' '.join(unique_lines) if unique_lines else "(No text detected)"
 
-    def export_to_txt(self, data):
+    def export_to_txt(self, data, channel_folder=None):
         """Export individual TXT report for each video"""
         video_id = data['video_id']
         platform = data['platform'].upper()
@@ -99,6 +112,11 @@ Hashtags:  {data['hashtags'] or '(None)'}
 {'='*80}
 """
 
-        txt_path = self.reports_dir / f"{platform}_{video_id}.txt"
+        reports_dir = self.reports_dir
+        if channel_folder:
+            reports_dir = channel_folder / "reports"
+            reports_dir.mkdir(exist_ok=True)
+
+        txt_path = reports_dir / f"{platform}_{video_id}.txt"
         with open(txt_path, 'w', encoding='utf-8') as f:
             f.write(report.strip())

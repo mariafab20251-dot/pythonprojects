@@ -4,9 +4,12 @@ from config import VIDEOS_DIR, MAX_RETRIES
 import os
 
 class VideoDownloader:
-    def __init__(self, platform):
+    def __init__(self, platform, channel_folder=None):
         self.platform = platform
-        self.output_dir = VIDEOS_DIR / platform
+        if channel_folder:
+            self.output_dir = channel_folder / "videos"
+        else:
+            self.output_dir = VIDEOS_DIR / platform
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.cookies_file = VIDEOS_DIR.parent / "cookies.txt"
 
