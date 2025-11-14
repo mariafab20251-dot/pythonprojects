@@ -100,22 +100,31 @@ def test_metadata_scan():
             print(f"   URL: {video.get('url')}")
             print(f"   Duration: {video.get('duration')}s")
 
-        # Export to Excel and TXT
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        excel_file = f"test_scan_{timestamp}.xlsx"
-        txt_file = f"test_urls_{timestamp}.txt"
+        # Export to Excel and TXT only if we have videos
+        if len(videos) > 0:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            excel_file = f"test_scan_{timestamp}.xlsx"
+            txt_file = f"test_urls_{timestamp}.txt"
 
-        progress_log(f"Exporting to Excel: {excel_file}")
-        scanner.export_to_excel([result], excel_file)
+            progress_log(f"Exporting to Excel: {excel_file}")
+            scanner.export_to_excel([result], excel_file)
 
-        progress_log(f"Exporting URLs to: {txt_file}")
-        scanner.export_urls_to_txt([result], txt_file)
+            progress_log(f"Exporting URLs to: {txt_file}")
+            scanner.export_urls_to_txt([result], txt_file)
 
-        print("\n" + "=" * 60)
-        print(f"✅ Test complete!")
-        print(f"📊 Excel file: {excel_file}")
-        print(f"📝 URL file: {txt_file}")
-        print("=" * 60)
+            print("\n" + "=" * 60)
+            print(f"✅ Test complete!")
+            print(f"📊 Excel file: {excel_file}")
+            print(f"📝 URL file: {txt_file}")
+            print("=" * 60)
+        else:
+            print("\n" + "=" * 60)
+            print("⚠️  No videos found - nothing to export")
+            print("This usually means:")
+            print("  • yt-dlp failed to fetch data (check error above)")
+            print("  • The profile has no videos")
+            print("  • The URL is incorrect")
+            print("=" * 60)
 
     except Exception as e:
         print(f"\n❌ Error: {str(e)}")

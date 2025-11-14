@@ -405,12 +405,17 @@ class MetadataScanner:
             output_path: Path to save Excel file
 
         Returns:
-            Path to created Excel file
+            Path to created Excel file or None if no data to export
         """
         if not isinstance(scan_results, list):
             scan_results = [scan_results]
 
         output_path = Path(output_path)
+
+        # Check if there's any data to export
+        has_data = any(result.get("videos", []) for result in scan_results)
+        if not has_data:
+            raise Exception("No videos to export - all scan results are empty")
 
         with pd.ExcelWriter(output_path, engine='openpyxl') as writer:
             for result in scan_results:
