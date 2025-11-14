@@ -84,17 +84,16 @@ class MetadataScanner:
             url = f"https://www.youtube.com/watch?v={vid_id}"
 
             if not channel_name:
-                channel_name = entry.get("channel") or "YouTube"
+                channel_name = entry.get("channel") or entry.get("uploader") or "YouTube"
 
-            # Get detailed info for duration
-            info = self.get_video_info(url)
-            duration = info.get("duration", 0)
-            uploader = info.get("uploader", "")
-            caption = info.get("description", "")
+            # Use data directly from flat-playlist (much faster!)
+            duration = entry.get("duration", 0)
+            uploader = entry.get("uploader") or entry.get("channel", "")
+            caption = entry.get("description", "")
 
             # Filter shorts if requested
             if filter_shorts and duration > 180:
-                if progress_callback and i % 10 == 0:
+                if progress_callback and i % 50 == 0:
                     progress_callback(f"Scanning... {i}/{total} ({len(videos)} shorts found)")
                 continue
 
@@ -107,7 +106,7 @@ class MetadataScanner:
                 "duration": duration
             })
 
-            if progress_callback and i % 10 == 0:
+            if progress_callback and i % 50 == 0:
                 progress_callback(f"Scanning... {i}/{total} ({len(videos)} videos found)")
 
         return {
