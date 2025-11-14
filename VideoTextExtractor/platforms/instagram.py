@@ -1,5 +1,6 @@
 import instaloader
 import re
+import time
 from pathlib import Path
 
 class InstagramScraper:
@@ -10,7 +11,9 @@ class InstagramScraper:
             download_geotags=False,
             download_comments=False,
             save_metadata=False,
-            compress_json=False
+            compress_json=False,
+            sleep=True,  # Enable sleep between requests
+            quiet=False
         )
         self.session_file = Path(__file__).parent.parent / "data" / "ig_session"
         self._load_session()
@@ -71,8 +74,8 @@ class InstagramScraper:
             print(f"Warning: Could not fetch Instagram metadata: {str(e)}")
             return video_id, "", ""
 
-    def get_all_videos_from_profile(self, username):
-        """Get all video URLs from an Instagram profile"""
+    def get_all_videos_from_profile(self, username, max_videos=50):
+        """Get video URLs from an Instagram profile with rate limiting"""
         try:
             # Check if logged in
             if not self.loader.context.is_logged_in:
@@ -81,13 +84,25 @@ class InstagramScraper:
                     "Click the 'Login' button to authenticate."
                 )
 
+            print(f"Fetching profile: @{username}")
+
             # Get profile
             profile = instaloader.Profile.from_username(self.loader.context, username)
 
             video_urls = []
+            post_count = 0
 
-            # Iterate through posts
+            print(f"Scanning posts for videos (max {max_videos})...")
+
+            # Iterate through posts with limit
             for post in profile.get_posts():
+                post_count += 1
+
+                # Add delay every 10 posts to avoid rate limiting
+                if post_count % 10 == 0:
+                    print(f"Checked {post_count} posts, found {len(video_urls)} videos. Pausing to avoid rate limits...")
+                    time.sleep(2)  # 2 second pause every 10 posts
+
                 # Check if it's a video (reel, IGTV, or video post)
                 if post.is_video:
                     # Construct URL
@@ -100,10 +115,22 @@ class InstagramScraper:
                         url = f"https://www.instagram.com/reel/{post.shortcode}/"
 
                     video_urls.append(url)
+                    print(f"Found video: {post.shortcode}")
+
+                    # Stop if we've reached max videos
+                    if len(video_urls) >= max_videos:
+                        print(f"Reached maximum of {max_videos} videos")
+                        break
+
+                # Safety limit: stop after checking 200 posts
+                if post_count >= 200:
+                    print(f"Checked {post_count} posts, stopping to avoid rate limits")
+                    break
 
             if not video_urls:
                 raise Exception(f"No videos found on profile @{username}")
 
+            print(f"Total videos found: {len(video_urls)}")
             return video_urls
 
         except instaloader.exceptions.ProfileNotExistsException:
@@ -113,7 +140,30 @@ class InstagramScraper:
                 "Instagram login required.\n"
                 "Click the 'Login' button to authenticate."
             )
+        except instaloader.exceptions.QueryReturnedBadRequestException as e:
+            raise Exception(
+                "Instagram rate limit exceeded.\n"
+                "Please wait 10-15 minutes before trying again.\n"
+                "Tip: Try processing individual video URLs instead of entire profiles."
+            )
+        except instaloader.exceptions.ConnectionException as e:
+            if "401" in str(e) or "Unauthorized" in str(e):
+                raise Exception(
+                    "Instagram rate limit exceeded (401 Unauthorized).\n\n"
+                    "Instagram is blocking requests. Please:\n"
+                    "1. Wait 10-15 minutes\n"
+                    "2. Try again with a fresh login\n"
+                    "3. Or process individual video URLs instead\n\n"
+                    "For better results, use cookies.txt method (see INSTAGRAM_LOGIN_GUIDE.md)"
+                )
+            raise Exception(f"Instagram connection error: {str(e)}")
         except Exception as e:
             if "Not logged in" in str(e) or "Login" in str(e):
                 raise
+            if "401" in str(e) or "Unauthorized" in str(e) or "rate" in str(e).lower():
+                raise Exception(
+                    "Instagram rate limit hit.\n\n"
+                    "Wait 10-15 minutes and try again.\n"
+                    "Or process videos one by one using direct URLs."
+                )
             raise Exception(f"Failed to scrape Instagram profile: {str(e)}")
