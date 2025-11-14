@@ -48,8 +48,26 @@ class InstagramScraper:
         if not video_id:
             return None, "", ""
 
-        # Return basic info - yt-dlp will handle download
-        return video_id, "", ""
+        try:
+            # Fetch post metadata using Instaloader
+            post = instaloader.Post.from_shortcode(self.loader.context, video_id)
+
+            # Extract caption
+            caption = post.caption if post.caption else ""
+
+            # Extract hashtags from caption
+            hashtags = ""
+            if caption:
+                hashtag_pattern = r'#(\w+)'
+                found_hashtags = re.findall(hashtag_pattern, caption)
+                hashtags = ", ".join(found_hashtags) if found_hashtags else ""
+
+            return video_id, caption, hashtags
+
+        except Exception as e:
+            # If metadata fetch fails, still return video_id so download can proceed
+            print(f"Warning: Could not fetch Instagram metadata: {str(e)}")
+            return video_id, "", ""
 
     def get_all_videos_from_profile(self, username):
         raise NotImplementedError(
