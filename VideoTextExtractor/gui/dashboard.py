@@ -584,29 +584,21 @@ class Dashboard:
                 )
                 return
 
-        # Ask for output location
-        output_dir = filedialog.askdirectory(
-            title="Select folder to save metadata results",
-            initialdir=str(Path(__file__).parent.parent / "channels")
-        )
-
-        if not output_dir:
-            return
-
         self.log("🔍 Starting metadata scan...")
 
         thread = threading.Thread(target=self._metadata_scan_thread,
-                                 args=(url, platform, output_dir))
+                                 args=(url, platform))
         thread.daemon = True
         thread.start()
 
-    def _metadata_scan_thread(self, url_input, platform, output_dir):
+    def _metadata_scan_thread(self, url_input, platform):
         """Metadata scan thread"""
         from core.metadata_scanner import MetadataScanner
+        import re
+        from config import BASE_DIR
 
         try:
             scanner = MetadataScanner()
-            output_path = Path(output_dir)
 
             self.log(f"📡 Scanning: {url_input}")
 
@@ -640,22 +632,37 @@ class Dashboard:
             videos = result.get('videos', [])
             self.log(f"✅ Found {len(videos)} videos from {channel_name}")
 
-            # Export
+            # Auto-create channel folder structure
+            safe_name = re.sub(r'[^a-zA-Z0-9_-]', '_', channel_name)
+            safe_name = safe_name[:50]  # Limit length
+
+            channel_folder = BASE_DIR / "channels" / platform / safe_name
+            channel_folder.mkdir(parents=True, exist_ok=True)
+
+            # Create subfolders
+            videos_folder = channel_folder / "videos"
+            reports_folder = channel_folder / "reports"
+            videos_folder.mkdir(exist_ok=True)
+            reports_folder.mkdir(exist_ok=True)
+
+            self.log(f"📁 Auto-created folder: channels/{platform}/{safe_name}/")
+
+            # Export with channel name in filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             self.log("📊 Exporting to Excel...")
-            excel_file = output_path / f"metadata_scan_{timestamp}.xlsx"
+            excel_file = channel_folder / f"metadata_{safe_name}_{timestamp}.xlsx"
             scanner.export_to_excel([result], str(excel_file))
             self.log(f"✅ Excel created: {excel_file.name}")
 
             self.log("📝 Exporting URLs to TXT...")
-            txt_file = output_path / f"urls_{timestamp}.txt"
+            txt_file = channel_folder / f"urls_{safe_name}_{timestamp}.txt"
             scanner.export_urls_to_txt([result], str(txt_file))
             self.log(f"✅ URL list created: {txt_file.name}")
 
             self.log(f"{'='*50}")
             self.log(f"✅ Metadata scan complete!")
-            self.log(f"📁 Results saved to: {output_dir}")
+            self.log(f"📁 Results saved to: {channel_folder}")
             self.log(f"{'='*50}")
 
             # Ask to load URLs
@@ -663,21 +670,22 @@ class Dashboard:
                 if messagebox.askyesno(
                     "Scan Complete",
                     f"Metadata scan complete!\n\n"
+                    f"✅ Channel: {channel_name}\n"
                     f"🎥 {len(videos)} video(s) found\n"
-                    f"📁 Files saved to: {output_path.name}\n\n"
+                    f"📁 Saved to: channels/{platform}/{safe_name}/\n\n"
                     f"Load URLs for processing?",
                     parent=self.root
                 ):
-                    with open(txt_file, 'r') as f:
+                    with open(txt_file, 'r', encoding='utf-8') as f:
                         urls = [line.strip() for line in f if line.strip()]
 
-                    self.processor.current_channel_folder = output_path
+                    self.processor.current_channel_folder = channel_folder
                     self.input_text.delete(0, tk.END)
-                    self.input_text.insert(0, ', '.join(urls[:10]))
-                    self.log(f"📥 Loaded {len(urls[:10])} URLs (first 10)")
+                    self.input_text.insert(0, ', '.join(urls))
+                    self.log(f"📥 Loaded {len(urls)} URLs into input field")
 
                     # Switch to Quick Process tab
-                    self.notebook.select(self.quick_tab)
+                    self.notebook.select(0)
 
             self.root.after(100, ask_load)
 

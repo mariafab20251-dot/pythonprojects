@@ -88,8 +88,7 @@ class MetadataScanner:
 
             # Use data directly from flat-playlist (much faster!)
             duration = entry.get("duration", 0)
-            uploader = entry.get("uploader") or entry.get("channel", "")
-            caption = entry.get("description", "")
+            description = entry.get("description", "")
 
             # Filter shorts if requested
             if filter_shorts and duration > 180:
@@ -100,8 +99,8 @@ class MetadataScanner:
             videos.append({
                 "video_id": vid_id,
                 "title": title,
-                "username": uploader,
-                "caption": caption,
+                "channel_name": channel_name,  # Use channel_name instead of uploader
+                "description": description,     # YouTube uses description, not caption
                 "url": url,
                 "duration": duration
             })
@@ -153,13 +152,13 @@ class MetadataScanner:
 
             video_url = entry.get("url") or f"https://www.tiktok.com/@{username}/video/{vid_id}"
             duration = entry.get("duration", 0)
-            caption = entry.get("description") or title
+            description = entry.get("description") or title
 
             videos.append({
                 "video_id": vid_id,
                 "title": title,
-                "username": username,
-                "caption": caption,
+                "username": username,           # TikTok has username
+                "description": description,     # TikTok uses description
                 "url": video_url,
                 "duration": duration
             })
@@ -359,7 +358,6 @@ class MetadataScanner:
                 url = entry.get("url") or entry.get("webpage_url", "")
                 duration = entry.get("duration", 0)
                 description = entry.get("description", "")
-                uploader = entry.get("uploader", page_name)
 
                 if not url:
                     continue
@@ -367,8 +365,8 @@ class MetadataScanner:
                 videos.append({
                     "video_id": vid_id,
                     "title": title,
-                    "username": uploader,
-                    "caption": description,
+                    "page_name": page_name,        # Use page_name for consistency
+                    "description": description,     # Facebook uses description, not caption
                     "url": url,
                     "duration": duration
                 })
@@ -445,8 +443,47 @@ class MetadataScanner:
                         'H': 10,  # likes
                         'I': 10   # views
                     }
+                elif platform == "youtube":
+                    # YouTube has channel_name and description (not username/caption)
+                    columns = [
+                        "video_id", "title", "channel_name", "description", "url", "duration"
+                    ]
+                    col_widths = {
+                        'A': 15,  # video_id
+                        'B': 50,  # title
+                        'C': 25,  # channel_name
+                        'D': 60,  # description
+                        'E': 50,  # url
+                        'F': 10   # duration
+                    }
+                elif platform == "tiktok":
+                    # TikTok has username and description
+                    columns = [
+                        "video_id", "title", "username", "description", "url", "duration"
+                    ]
+                    col_widths = {
+                        'A': 15,  # video_id
+                        'B': 50,  # title
+                        'C': 20,  # username
+                        'D': 60,  # description
+                        'E': 50,  # url
+                        'F': 10   # duration
+                    }
+                elif platform == "facebook":
+                    # Facebook has page_name and description
+                    columns = [
+                        "video_id", "title", "page_name", "description", "url", "duration"
+                    ]
+                    col_widths = {
+                        'A': 15,  # video_id
+                        'B': 50,  # title
+                        'C': 25,  # page_name
+                        'D': 60,  # description
+                        'E': 50,  # url
+                        'F': 10   # duration
+                    }
                 else:
-                    # Standard columns for YouTube, TikTok, Facebook
+                    # Fallback for unknown platforms
                     columns = [
                         "video_id", "title", "username", "caption", "url", "duration"
                     ]
