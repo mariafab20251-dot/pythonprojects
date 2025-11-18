@@ -84,7 +84,12 @@ class MetadataScanner:
             url = f"https://www.youtube.com/watch?v={vid_id}"
 
             if not channel_name:
-                channel_name = entry.get("channel") or entry.get("uploader") or "YouTube"
+                # Use playlist-level metadata first (always available and correct)
+                channel_name = (entry.get("playlist_channel") or
+                               entry.get("playlist_uploader") or
+                               entry.get("channel") or
+                               entry.get("uploader") or
+                               "YouTube")
 
             # Use data directly from flat-playlist (much faster!)
             duration = entry.get("duration", 0)
@@ -395,13 +400,15 @@ class MetadataScanner:
                 f"• Using yt-dlp with cookies for authentication"
             )
 
-    def export_to_excel(self, scan_results, output_path):
+    def export_to_excel(self, scan_results, output_path, selected_columns=None):
         """
         Export scan results to Excel
 
         Args:
             scan_results: List of scan result dicts or single dict
             output_path: Path to save Excel file
+            selected_columns: Dict of column names to boolean (True=include, False=exclude)
+                            If None, include all columns
 
         Returns:
             Path to created Excel file or None if no data to export
@@ -502,6 +509,11 @@ class MetadataScanner:
                 for col in columns:
                     if any(col in video for video in videos):
                         available_columns.append(col)
+
+                # Further filter by user selection if provided
+                if selected_columns:
+                    available_columns = [col for col in available_columns
+                                        if selected_columns.get(col, True)]
 
                 df = pd.DataFrame(videos, columns=available_columns)
 

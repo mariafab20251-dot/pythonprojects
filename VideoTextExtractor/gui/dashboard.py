@@ -205,6 +205,55 @@ class Dashboard:
         tk.Label(platform_info_frame, text="⚠️ Facebook: Public pages only, less reliable",
                 font=("Arial", 9), fg='orange').pack(anchor=tk.W, padx=20)
 
+        # Column selection
+        columns_frame = tk.LabelFrame(scan_section, text="📋 Excel Columns to Include",
+                                     font=("Arial", 10, "bold"))
+        columns_frame.pack(fill=tk.X, pady=10)
+
+        # Initialize column selection vars
+        self.metadata_columns = {
+            'video_id': tk.BooleanVar(value=True),
+            'title': tk.BooleanVar(value=True),
+            'channel_name': tk.BooleanVar(value=True),
+            'description': tk.BooleanVar(value=True),
+            'url': tk.BooleanVar(value=True),
+            'duration': tk.BooleanVar(value=True),
+        }
+
+        # Create checkboxes in grid layout
+        col_checkboxes_frame = tk.Frame(columns_frame)
+        col_checkboxes_frame.pack(fill=tk.X, padx=10, pady=10)
+
+        column_labels = {
+            'video_id': 'Video ID',
+            'title': 'Title',
+            'channel_name': 'Channel/Username',
+            'description': 'Description/Caption',
+            'url': 'URL',
+            'duration': 'Duration'
+        }
+
+        row = 0
+        col = 0
+        for key, label in column_labels.items():
+            cb = tk.Checkbutton(col_checkboxes_frame, text=label,
+                               variable=self.metadata_columns[key],
+                               font=("Arial", 9))
+            cb.grid(row=row, column=col, sticky=tk.W, padx=15, pady=3)
+            col += 1
+            if col > 2:  # 3 columns per row
+                col = 0
+                row += 1
+
+        # Select/Deselect all buttons
+        btn_frame = tk.Frame(columns_frame)
+        btn_frame.pack(pady=(0, 10))
+
+        tk.Button(btn_frame, text="Select All", command=lambda: self.toggle_all_columns(True),
+                 bg='#4CAF50', fg='white', font=("Arial", 8), width=10).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Deselect All", command=lambda: self.toggle_all_columns(False),
+                 bg='#f44336', fg='white', font=("Arial", 8), width=10).pack(side=tk.LEFT, padx=5)
+
         # Scan button
         scan_btn_frame = tk.Frame(scan_section)
         scan_btn_frame.pack(pady=20)
@@ -562,6 +611,11 @@ class Dashboard:
         finally:
             self.progress_label.config(text="Ready")
 
+    def toggle_all_columns(self, select):
+        """Select or deselect all metadata columns"""
+        for var in self.metadata_columns.values():
+            var.set(select)
+
     def start_metadata_scan(self):
         """Start metadata scan from Metadata tab"""
         url = self.metadata_url.get().strip()
@@ -647,12 +701,15 @@ class Dashboard:
 
             self.log(f"📁 Auto-created folder: channels/{platform}/{safe_name}/")
 
+            # Get selected columns from GUI
+            selected_columns = {k: v.get() for k, v in self.metadata_columns.items()}
+
             # Export with channel name in filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             self.log("📊 Exporting to Excel...")
             excel_file = channel_folder / f"metadata_{safe_name}_{timestamp}.xlsx"
-            scanner.export_to_excel([result], str(excel_file))
+            scanner.export_to_excel([result], str(excel_file), selected_columns=selected_columns)
             self.log(f"✅ Excel created: {excel_file.name}")
 
             self.log("📝 Exporting URLs to TXT...")
