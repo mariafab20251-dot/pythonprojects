@@ -1,7 +1,7 @@
 import whisper
 import easyocr
 from PIL import Image, ImageEnhance, ImageFilter
-from moviepy.editor import VideoFileClip
+from moviepy import VideoFileClip
 import os
 import re
 from config import FRAMES_DIR, FRAME_INTERVAL, WHISPER_MODEL
