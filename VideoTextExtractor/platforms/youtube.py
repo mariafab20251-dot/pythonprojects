@@ -7,9 +7,9 @@ class YouTubeScraper:
 
     def extract_video_id(self, url):
         patterns = [
-            r'youtube.com/watch\?v=([A-Za-z0-9_-]+)',
-            r'youtube.com/shorts/([A-Za-z0-9_-]+)',
-            r'youtu.be/([A-Za-z0-9_-]+)',
+            r'(?:https?://)?(?:www\.)?youtube\.com/watch\?v=([A-Za-z0-9_-]+)',
+            r'(?:https?://)?(?:www\.)?youtube\.com/shorts/([A-Za-z0-9_-]+)',
+            r'(?:https?://)?(?:www\.)?youtu\.be/([A-Za-z0-9_-]+)',
         ]
         for pattern in patterns:
             match = re.search(pattern, url)
