@@ -97,7 +97,7 @@ class MetadataScanner:
 
             # Filter shorts if requested
             if filter_shorts and duration > 180:
-                if progress_callback and i % 50 == 0:
+                if progress_callback and i % 20 == 0:
                     progress_callback(f"Scanning... {i}/{total} ({len(videos)} shorts found)")
                 continue
 
@@ -110,8 +110,11 @@ class MetadataScanner:
                 "duration": duration
             })
 
-            if progress_callback and i % 50 == 0:
+            if progress_callback and i % 20 == 0:
                 progress_callback(f"Scanning... {i}/{total} ({len(videos)} videos found)")
+
+        if progress_callback:
+            progress_callback(f"✅ Extraction complete! Found {len(videos)} videos from {total} entries")
 
         return {
             "channel_name": channel_name,
